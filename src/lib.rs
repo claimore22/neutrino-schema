@@ -1,4 +1,4 @@
-//! Schema-to-Rust compiler pipeline.
+//! Multi-database schema-to-Rust compiler pipeline.
 //!
 //! Introspects a live PostgreSQL, MySQL/MariaDB, or SQLite database, normalises
 //! column types into a database-agnostic Intermediate Representation

@@ -9,9 +9,9 @@ A schema-to-Rust compiler pipeline for generating strongly typed Rust code from 
 
 ```sql
 CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    email TEXT NOT NULL,
-    display_name VARCHAR(100)
+    id         BIGSERIAL    PRIMARY KEY,
+    email      VARCHAR(255) NOT NULL,
+    full_name  VARCHAR(100)
 );
 ```
 
@@ -32,7 +32,7 @@ pub struct Users {
 
 `neutrino-schema` simplifies Rust application development by converting database schemas into strongly typed Rust structures.
 
-The tool currently introspects PostgreSQL database structures, including tables, columns, data types, nullability, and relationships. The extracted schema is transformed into an intermediate representation (`SchemaIR`) and then used to generate Rust source code.
+The tool introspects database structures — PostgreSQL, MySQL/MariaDB, and SQLite — including tables, columns, data types, nullability, and relationships. The extracted schema is transformed into an intermediate representation (`SchemaIR`) and then used to generate Rust source code.
 
 ## How does it work?
 
@@ -54,12 +54,12 @@ Strongly typed Rust code
 
 ## Features
 
-- PostgreSQL schema introspection
+- PostgreSQL, MySQL/MariaDB, and SQLite introspection
 - Strongly typed schema representation
 - Intermediate representation (`SchemaIR`)
 - Automatic Rust struct generation
-- Relationship inference
-- CLI tooling
+- Relationship inference via naming heuristics
+- CLI tooling for `inspect` and `generate`
 
 ## Installation
 

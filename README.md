@@ -1,9 +1,9 @@
 # neutrino-schema
 
 [![CI](https://github.com/claimore22/neutrino-schema/actions/workflows/ci.yml/badge.svg)](https://github.com/claimore22/neutrino-schema/actions/workflows/ci.yml)
-[![Crates.io](https://img.shields.io/crates/v/neutrino-schema.svg)](https://crates.io/crates/neutrino-schema)
+[![Crates.io](https://img.shields.io/crates/v/neutrino-schema.svg?refresh=1)](https://crates.io/crates/neutrino-schema)
 [![docs.rs](https://docs.rs/neutrino-schema/badge.svg)](https://docs.rs/neutrino-schema)
-[![License](https://img.shields.io/crates/l/neutrino-schema.svg)](https://github.com/claimore22/neutrino-schema)
+[![License](https://img.shields.io/crates/l/neutrino-schema.svg?refresh=1)](https://github.com/claimore22/neutrino-schema)
 
 A schema-to-Rust compiler pipeline for generating strongly typed Rust code from databases.
 

@@ -7,7 +7,7 @@ repository = "https://github.com/claimore22/neutrino-schema"
 homepage = "https://github.com/claimore22/neutrino-schema"
 rust-version = "1.85"
 description = "Schema-to-Rust compiler pipeline for generating strongly typed Rust models"
-keywords = ["database", "postgres", "schema", "codegen", "rust"]
+keywords = ["database", "postgres", "mysql", "sqlite", "schema", "codegen", "rust"]
 categories = ["database", "development-tools", "command-line-utilities"]
 readme = "README.md"
 documentation = "https://docs.rs/neutrino-schema"
@@ -18,8 +18,10 @@ path = "src/main.rs"
 required-features = ["cli"]
 
 [features]
-default = ["postgres", "cli"]
-postgres = ["dep:sqlx"]
+default = ["postgres", "sqlite", "mysql", "cli"]
+postgres = ["sqlx/postgres", "sqlx/tls-rustls-aws-lc-rs"]
+sqlite = ["sqlx/sqlite"]
+mysql = ["sqlx/mysql", "sqlx/tls-rustls-aws-lc-rs"]
 cli = ["dep:clap", "dep:tokio"]
 
 [dependencies]
@@ -27,7 +29,7 @@ anyhow = "1"
 async-trait = "0.1"
 clap = { version = "4", optional = true, features = ["derive", "env"] }
 tokio = { version = "1", optional = true, default-features = false, features = ["rt-multi-thread", "macros"] }
-sqlx = { version = "0.9", optional = true, default-features = false, features = ["postgres", "runtime-tokio", "tls-rustls-aws-lc-rs"] }
+sqlx = { version = "0.9", optional = true, default-features = false, features = ["runtime-tokio"] }
 
 [lints.clippy]
 all = "allow"

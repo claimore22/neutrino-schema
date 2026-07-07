@@ -2,8 +2,8 @@ use clap::Args;
 
 use crate::codegen::{generate_struct, RenderMode};
 use crate::config::GeneratorConfig;
-use crate::ir::{RelationStrategy, SchemaIR, TableIR};
-use crate::introspect::{DatabaseIntrospector, PostgresIntrospector};
+use crate::ir::{RelationStrategy, SchemaIR};
+use crate::introspect::DatabaseIntrospector;
 
 /// Inspect a database and print generated structs.
 ///
@@ -11,7 +11,8 @@ use crate::introspect::{DatabaseIntrospector, PostgresIntrospector};
 /// tables to a `generated/` directory and prints relation info.
 #[derive(Args)]
 pub struct InspectCommand {
-    /// PostgreSQL connection string (e.g. `postgres://user:pass@localhost/db`).
+    /// Database connection string (e.g. `postgres://user:pass@localhost/db`
+    /// or `sqlite:./dev.db`).
     pub database_url: String,
 
     /// Name of a single table to inspect (omit or use `--all` for all tables).
@@ -33,12 +34,7 @@ impl InspectCommand {
     ///
     /// Returns an error if the database connection fails or introspection queries fail.
     pub async fn run(&self) -> anyhow::Result<()> {
-        let pool = sqlx::postgres::PgPoolOptions::new()
-            .max_connections(1)
-            .connect(&self.database_url)
-            .await?;
-
-        let introspector = PostgresIntrospector::new(pool);
+        let introspector = self.connect().await?;
 
         let mode = if self.comments {
             RenderMode::Debug
@@ -48,17 +44,7 @@ impl InspectCommand {
 
         if self.all {
             let table_names = introspector.list_tables().await?;
-            let mut tables = Vec::new();
-
-            for name in &table_names {
-                let columns = introspector.list_columns(name).await?;
-                let fields = columns.iter().map(PostgresIntrospector::column_to_field).collect();
-                tables.push(TableIR {
-                    name: name.clone(),
-                    fields,
-                });
-            }
-
+            let tables = crate::cli::introspect_tables(introspector.as_ref(), &table_names).await?;
             let schema = SchemaIR::from_tables(tables, RelationStrategy::NamingHeuristic);
             let cfg = GeneratorConfig {
                 output_dir: "generated".into(),
@@ -77,8 +63,8 @@ impl InspectCommand {
             }
         } else if let Some(table_name) = &self.table {
             let columns = introspector.list_columns(table_name).await?;
-            let fields = columns.iter().map(PostgresIntrospector::column_to_field).collect();
-            let table_ir = TableIR {
+            let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
+            let table_ir = crate::ir::TableIR {
                 name: table_name.clone(),
                 fields,
             };
@@ -98,5 +84,59 @@ impl InspectCommand {
         }
 
         Ok(())
+    }
+
+    /// Create the appropriate introspector for the database URL.
+    #[cfg(feature = "postgres")]
+    async fn connect(&self) -> anyhow::Result<Box<dyn DatabaseIntrospector>> {
+        if self.database_url.starts_with("sqlite:") {
+            return self.connect_sqlite().await;
+        }
+        if self.database_url.starts_with("mysql:") {
+            return self.connect_mysql().await;
+        }
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(1)
+            .connect(&self.database_url)
+            .await?;
+        Ok(Box::new(crate::introspect::PostgresIntrospector::new(pool)))
+    }
+
+    /// Create the appropriate introspector for the database URL (no Postgres).
+    #[cfg(all(not(feature = "postgres"), any(feature = "sqlite", feature = "mysql")))]
+    async fn connect(&self) -> anyhow::Result<Box<dyn DatabaseIntrospector>> {
+        if self.database_url.starts_with("mysql:") {
+            return self.connect_mysql().await;
+        }
+        self.connect_sqlite().await
+    }
+
+    /// Connect to SQLite — returns an error if the `sqlite` feature is disabled.
+    #[cfg(feature = "sqlite")]
+    async fn connect_sqlite(&self) -> anyhow::Result<Box<dyn DatabaseIntrospector>> {
+        let pool = sqlx::sqlite::SqlitePool::connect(&self.database_url).await?;
+        Ok(Box::new(crate::introspect::SqliteIntrospector::new(pool)))
+    }
+
+    /// Stub — SQLite support not compiled in.
+    #[cfg(all(feature = "postgres", not(feature = "sqlite")))]
+    async fn connect_sqlite(&self) -> anyhow::Result<Box<dyn DatabaseIntrospector>> {
+        anyhow::bail!("SQLite support not enabled (enable the `sqlite` feature)")
+    }
+
+    /// Connect to MySQL — returns an error if the `mysql` feature is disabled.
+    #[cfg(feature = "mysql")]
+    async fn connect_mysql(&self) -> anyhow::Result<Box<dyn DatabaseIntrospector>> {
+        let pool = sqlx::mysql::MySqlPoolOptions::new()
+            .max_connections(1)
+            .connect(&self.database_url)
+            .await?;
+        Ok(Box::new(crate::introspect::MysqlIntrospector::new(pool)))
+    }
+
+    /// Stub — MySQL support not compiled in.
+    #[cfg(all(feature = "postgres", not(feature = "mysql")))]
+    async fn connect_mysql(&self) -> anyhow::Result<Box<dyn DatabaseIntrospector>> {
+        anyhow::bail!("MySQL support not enabled (enable the `mysql` feature)")
     }
 }

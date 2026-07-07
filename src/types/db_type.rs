@@ -3,12 +3,17 @@ use crate::types::PgType;
 /// Database-agnostic type representation.
 ///
 /// This is the type system used throughout the IR and codegen layers.
-/// Raw PostgreSQL types are normalised into this enum by [`to_db_type`].
+/// Raw database types (PostgreSQL, MySQL, SQLite) are normalised into this
+/// enum by [`to_db_type`](crate::types::to_db_type),
+/// [`mysql_to_db_type`](crate::types::mysql_to_db_type), or
+/// [`sqlite_to_db_type`](crate::types::sqlite_to_db_type).
 /// Nullability is NEVER encoded here — always `Option<T>` at codegen time.
 #[derive(Debug, Clone, PartialEq)]
 pub enum DbType {
     /// Integer (signed 64-bit).
     Int,
+    /// Floating-point (64-bit).
+    Float,
     /// UTF-8 string.
     String,
     /// Boolean.
@@ -72,6 +77,7 @@ pub fn dbtype_to_rust(ty: &DbType, nullable: bool) -> String {
     let base = match ty {
         DbType::String => "String".to_string(),
         DbType::Int => "i64".to_string(),
+        DbType::Float => "f64".to_string(),
         DbType::Uuid => "uuid::Uuid".to_string(),
         DbType::DateTime => "chrono::DateTime<chrono::Utc>".to_string(),
         DbType::Bool => "bool".to_string(),

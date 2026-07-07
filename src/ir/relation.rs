@@ -1,4 +1,4 @@
-/// Controls whether [`SchemaIR::from_tables`] attempts to infer foreign-key-like
+/// Controls whether [`SchemaIR::from_tables`](crate::ir::SchemaIR::from_tables) attempts to infer foreign-key-like
 /// relationships between tables.
 ///
 /// Relation inference is always best-effort and does **not** query database

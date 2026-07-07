@@ -1,7 +1,8 @@
 /// PostgreSQL column data type returned by `information_schema.columns`.
 ///
 /// This is the raw representation directly from the database.  It is never used
-/// downstream — it is always mapped to [`DbType`] via [`to_db_type`].
+/// downstream — it is always mapped to [`DbType`](crate::types::DbType) via
+/// [`to_db_type`](crate::types::to_db_type).
 #[derive(Debug, Clone)]
 pub enum PgType {
     /// 32-bit integer (`integer`, `int`, `int4`, `smallint`).

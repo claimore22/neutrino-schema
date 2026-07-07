@@ -10,6 +10,7 @@ description = "Schema-to-Rust compiler pipeline for generating strongly typed Ru
 keywords = ["database", "postgres", "schema", "codegen", "rust"]
 categories = ["database", "development-tools"]
 readme = "README.md"
+documentation = "https://docs.rs/neutrino-schema"
 
 [[bin]]
 name = "neutrino-schema"

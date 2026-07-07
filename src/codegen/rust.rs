@@ -1,0 +1,77 @@
+use std::path::Path;
+
+use crate::ir::{FieldIR, SchemaIR, TableIR};
+
+fn pascal_case(s: &str) -> String {
+    let mut out = String::new();
+    let mut upper = true;
+    for ch in s.chars() {
+        if ch == '_' || ch == '-' {
+            upper = true;
+        } else if upper {
+            out.push(ch.to_ascii_uppercase());
+            upper = false;
+        } else {
+            out.push(ch);
+        }
+    }
+    out
+}
+
+pub fn to_struct_name(table_name: &str) -> String {
+    pascal_case(table_name)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RenderMode {
+    Clean,
+    Debug,
+}
+
+fn render_field(f: &FieldIR, mode: RenderMode) -> String {
+    let ty = crate::types::dbtype_to_rust(&f.ty, f.nullable);
+    match mode {
+        RenderMode::Clean => format!("    pub {}: {},\n", f.name, ty),
+        RenderMode::Debug => {
+            let null_label = if f.nullable { "NULL" } else { "NOT NULL" };
+            format!("    pub {}: {}, // {}, {}\n", f.name, ty, f.raw_type, null_label)
+        }
+    }
+}
+
+pub fn generate_struct(table: &TableIR, mode: RenderMode) -> String {
+    let mut out = String::new();
+    let struct_name = to_struct_name(&table.name);
+
+    out.push_str("#[derive(Debug, Clone)]\n");
+    out.push_str(&format!("pub struct {struct_name} {{\n"));
+
+    for f in &table.fields {
+        out.push_str(&render_field(f, mode));
+    }
+
+    out.push_str("}\n");
+    out
+}
+
+pub fn generate_files(schema: &SchemaIR, output_dir: &Path, mode: RenderMode) -> std::io::Result<()> {
+    std::fs::create_dir_all(output_dir)?;
+
+    let mut mod_decls = Vec::new();
+
+    for table in &schema.tables {
+        let file_name = format!("{}.rs", table.name.replace('-', "_"));
+        let content = generate_struct(table, mode);
+
+        std::fs::write(output_dir.join(&file_name), content)?;
+        mod_decls.push(table.name.replace('-', "_"));
+    }
+
+    let mut mod_rs = String::new();
+    for decl in &mod_decls {
+        mod_rs.push_str(&format!("pub mod {decl};\n"));
+    }
+    std::fs::write(output_dir.join("mod.rs"), mod_rs)?;
+
+    Ok(())
+}

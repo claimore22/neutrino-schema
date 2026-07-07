@@ -1,0 +1,26 @@
+[package]
+name = "neutrino-schema"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Schema-to-Rust compiler pipeline: introspect databases, build SchemaIR, generate strongly typed Rust models"
+
+[[bin]]
+name = "neutrino-schema"
+path = "src/main.rs"
+required-features = ["cli"]
+
+[features]
+default = ["postgres", "cli"]
+postgres = ["dep:sqlx"]
+cli = ["dep:clap", "dep:tokio"]
+
+[dependencies]
+anyhow = "1"
+async-trait = "0.1"
+clap = { version = "4", optional = true, features = ["derive"] }
+tokio = { version = "1", optional = true, default-features = false, features = ["rt-multi-thread", "macros"] }
+sqlx = { version = "0.9", optional = true, default-features = false, features = ["postgres", "runtime-tokio", "tls-rustls-aws-lc-rs"] }
+
+[lints]
+workspace = true

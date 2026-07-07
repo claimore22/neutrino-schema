@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented here.
 
+## [0.2.0] - 2026-07-07
+
+### Added
+- SQLite support: `SqliteType` enum, `SqliteIntrospector` (via `PRAGMA table_info`),
+  feature gate (`sqlite`), CLI auto-detection of `sqlite:` URLs.
+- MySQL/MariaDB support: `MysqlType` enum, `MysqlIntrospector` (via
+  `information_schema.columns`), feature gate (`mysql`),
+  CLI auto-detection of `mysql:` URLs.
+- `DbType::Float` variant for SQLite `REAL` / MySQL `FLOAT` / `DECIMAL`.
+- Integration tests for SQLite (in-memory) and MySQL (real database).
+- `DatabaseIntrospector::column_to_field` moved into trait for polymorphic dispatch.
+
+### Changed
+- `Column.data_type` from `PgType` to `String` so the shared struct works
+  across all three database backends.
+- `DatabaseIntrospector` trait extracted into own `traits.rs` (not feature-gated).
+- Default features now include `postgres`, `sqlite`, `mysql`, and `cli`.
+- All intra-doc links use `crate::` paths (zero doc warnings).
+
 ## [0.1.3] - 2026-07-06
 
 ### Added

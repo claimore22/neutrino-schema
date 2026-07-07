@@ -2,7 +2,17 @@
 
 ![Rust](https://img.shields.io/badge/rust-1.85+-blue.svg)
 
-Schema-to-Rust compiler pipeline. Introspects PostgreSQL databases, builds an intermediate schema representation, and generates strongly typed Rust models.
+neutrino-schema aims to simplify Rust application development by automatically generating Rust types from your database schema. The tool introspects your database structure, including tables, columns, data types, nullability, and relationships, then builds an intermediate schema representation before generating Rust source code.
+
+## How does it work?
+
+neutrino-schema follows a compiler-style pipeline:
+
+**Database introspection** — Connects to your database and analyzes its structure.
+**Schema representation** — Converts database metadata into a strongly typed intermediate representation (SchemaIR).
+**Code generation** — Generates Rust structs and modules based on your schema.
+
+The generated code is designed to provide a type-safe bridge between your database and Rust applications while keeping the generated models predictable and easy to maintain.
 
 ## Pipeline
 

@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented here.
 
+## [0.1.2] - 2026-07-06
+
+### Added
+- LICENSE-MIT and LICENSE-APACHE files (missing from standalone repo).
+- `documentation = "https://docs.rs/neutrino-schema"` in Cargo.toml.
+- `deny.toml` for cargo-deny CI check.
+- Standalone CI workflow without `--workspace` flags.
+
+### Fixed
+- Workspace-inherited Cargo.toml fields (`edition`, `license`, `repository`,
+  `homepage`, `lints`) hardcoded to resolve independently.
+
 ## [0.1.1] - 2026-07-06
 
 ### Added

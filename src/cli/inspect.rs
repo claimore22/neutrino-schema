@@ -5,19 +5,33 @@ use crate::config::GeneratorConfig;
 use crate::ir::{RelationStrategy, SchemaIR, TableIR};
 use crate::introspect::{DatabaseIntrospector, PostgresIntrospector};
 
+/// Inspect a database and print generated structs.
+///
+/// With a table name, prints a single struct.  With `--all`, writes all
+/// tables to a `generated/` directory and prints relation info.
 #[derive(Args)]
 pub struct InspectCommand {
+    /// PostgreSQL connection string (e.g. `postgres://user:pass@localhost/db`).
     pub database_url: String,
+
+    /// Name of a single table to inspect (omit or use `--all` for all tables).
     pub table: Option<String>,
 
+    /// Inspect all tables in the public schema.
     #[arg(long)]
     pub all: bool,
 
+    /// Include raw type and nullability annotations in output.
     #[arg(short, long)]
     pub comments: bool,
 }
 
 impl InspectCommand {
+    /// Execute the inspect subcommand.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database connection fails or introspection queries fail.
     pub async fn run(&self) -> anyhow::Result<()> {
         let pool = sqlx::postgres::PgPoolOptions::new()
             .max_connections(1)

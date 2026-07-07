@@ -4,21 +4,37 @@ use crate::ir::FieldIR;
 use crate::introspect::Column;
 use crate::types::{self, PgType};
 
+/// Abstraction for database introspection.
+///
+/// Implementors provide table and column metadata from a live database,
+/// typically by querying `information_schema`.
 #[async_trait::async_trait]
 pub trait DatabaseIntrospector: Send + Sync {
+    /// List all user-accessible table names in the `public` schema.
     async fn list_tables(&self) -> anyhow::Result<Vec<String>>;
+    /// List all columns for a given table, in ordinal position order.
     async fn list_columns(&self, table: &str) -> anyhow::Result<Vec<Column>>;
 }
 
+/// PostgreSQL implementation of [`DatabaseIntrospector`].
+///
+/// Queries `information_schema.tables` and `information_schema.columns`
+/// filtered to the `public` schema.
 pub struct PostgresIntrospector {
+    /// SQLx connection pool for the target database.
     pub pool: PgPool,
 }
 
 impl PostgresIntrospector {
+    /// Create a new introspector from an existing connection pool.
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 
+    /// Convert an introspected [`Column`] into a [`FieldIR`] for the IR pipeline.
+    ///
+    /// This is the boundary between the introspection and IR layers:
+    /// the raw [`PgType`] is normalised to [`DbType`] here.
     pub fn column_to_field(col: &Column) -> FieldIR {
         let db_ty = types::to_db_type(col.data_type.clone());
         FieldIR {

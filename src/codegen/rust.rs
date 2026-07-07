@@ -17,13 +17,28 @@ fn pascal_case(s: &str) -> String {
     out
 }
 
+/// Convert a `snake_case` table name to `PascalCase` for use as a Rust struct name.
+///
+/// # Examples
+///
+/// ```
+/// use neutrino_schema::to_struct_name;
+/// assert_eq!(to_struct_name("users"), "Users");
+/// assert_eq!(to_struct_name("blog_posts"), "BlogPosts");
+/// assert_eq!(to_struct_name("user_profile_data"), "UserProfileData");
+/// ```
 pub fn to_struct_name(table_name: &str) -> String {
     pascal_case(table_name)
 }
 
+/// Controls whether generated structs include debug annotations.
+///
+/// Used by [`generate_struct`] and [`generate_files`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RenderMode {
+    /// Clean output — no comments on fields.
     Clean,
+    /// Include `// RawType, NULL/NOT NULL` comments on each field.
     Debug,
 }
 
@@ -38,6 +53,31 @@ fn render_field(f: &FieldIR, mode: RenderMode) -> String {
     }
 }
 
+/// Render a single [`TableIR`] as a Rust struct definition.
+///
+/// The struct is `#[derive(Debug, Clone)]` and all fields are `pub`.
+/// When `mode` is [`RenderMode::Debug`], each field gets a comment with
+/// its raw SQL type and nullability.
+///
+/// # Example
+///
+/// ```rust
+/// use neutrino_schema::*;
+///
+/// let table = TableIR {
+///     name: "users".into(),
+///     fields: vec![FieldIR {
+///         name: "email".into(),
+///         ty: DbType::String,
+///         nullable: false,
+///         raw_type: "Varchar".into(),
+///     }],
+/// };
+///
+/// let out = generate_struct(&table, RenderMode::Clean);
+/// assert!(out.contains("pub struct Users"));
+/// assert!(out.contains("email: String"));
+/// ```
 pub fn generate_struct(table: &TableIR, mode: RenderMode) -> String {
     let mut out = String::new();
     let struct_name = to_struct_name(&table.name);
@@ -53,6 +93,16 @@ pub fn generate_struct(table: &TableIR, mode: RenderMode) -> String {
     out
 }
 
+/// Write generated Rust structs to disk.
+///
+/// Creates one `.rs` file per table in `config.output_dir`, named after the
+/// table (e.g. `users.rs`), plus a `mod.rs` that declares each sub-module.
+/// Creates the output directory if it does not exist.
+///
+/// # Errors
+///
+/// Returns `Err` if the output directory cannot be created, or if any file
+/// cannot be written.
 pub fn generate_files(schema: &SchemaIR, config: &GeneratorConfig) -> std::io::Result<()> {
     std::fs::create_dir_all(&config.output_dir)?;
 

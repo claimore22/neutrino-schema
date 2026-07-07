@@ -18,6 +18,8 @@ pub struct GeneratorConfig {
     pub render_mode: RenderMode,
 }
 
+/// Default config: output to `./src/models`, module name `"models"`,
+/// [`RenderMode::Clean`](crate::RenderMode).
 impl Default for GeneratorConfig {
     fn default() -> Self {
         Self {

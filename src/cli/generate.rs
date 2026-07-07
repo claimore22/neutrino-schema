@@ -5,11 +5,17 @@ use clap::Args;
 use crate::codegen::RenderMode;
 use crate::config::GeneratorConfig;
 
+/// Generate Rust model files from a database schema.
+///
+/// Connects to the database, introspects the public schema, and writes
+/// one `.rs` file per table (plus a `mod.rs`) to the output directory.
 #[derive(Args)]
 pub struct GenerateCommand {
+    /// PostgreSQL connection string (also read from `DATABASE_URL` env).
     #[arg(long, env = "DATABASE_URL")]
     pub database_url: String,
 
+    /// Directory to write generated files into (default: `./src/models`).
     #[arg(short, long, default_value = "./src/models")]
     pub output: PathBuf,
 
@@ -17,11 +23,18 @@ pub struct GenerateCommand {
     #[arg(long)]
     pub table: Vec<String>,
 
+    /// Include raw type and nullability comments in generated structs.
     #[arg(long)]
     pub debug: bool,
 }
 
 impl GenerateCommand {
+    /// Execute the generate subcommand.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database connection fails, introspection fails,
+    /// or files cannot be written to the output directory.
     pub async fn run(&self) -> anyhow::Result<()> {
         use crate::ir::{RelationStrategy, SchemaIR, TableIR};
         use crate::introspect::{DatabaseIntrospector, PostgresIntrospector};

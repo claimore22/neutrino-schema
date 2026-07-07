@@ -1,12 +1,20 @@
 use crate::ir::{RelationIR, RelationStrategy, TableIR};
 
+/// Full database schema — the top-level IR object consumed by code generation.
+///
+/// Construct via [`SchemaIR::from_tables`], which populates the relations
+/// vector according to the chosen [`RelationStrategy`].
 #[derive(Debug)]
 pub struct SchemaIR {
+    /// All tables discovered or provided.
     pub tables: Vec<TableIR>,
+    /// Inferred inter-table relationships (may be empty).
     pub relations: Vec<RelationIR>,
 }
 
 impl SchemaIR {
+    /// Build a [`SchemaIR`] from a set of tables, inferring relations
+    /// according to `strategy`.
     pub fn from_tables(tables: Vec<TableIR>, strategy: RelationStrategy) -> Self {
         let relations = match strategy {
             RelationStrategy::Disabled => Vec::new(),

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented here.
 
+## [0.2.1] - 2026-07-07
+
+### Fixed
+- Crate and README documentation updated from PostgreSQL-only to reflect
+  multi-database support (PostgreSQL, MySQL/MariaDB, SQLite).
+- MySQL integration tests gracefully skip when server is unreachable.
+
 ## [0.2.0] - 2026-07-07
 
 ### Added

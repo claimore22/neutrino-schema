@@ -37,11 +37,11 @@ impl DatabaseIntrospector for MysqlIntrospector {
     async fn list_tables(&self) -> anyhow::Result<Vec<String>> {
         let rows = sqlx::query(
             r#"
-            SELECT table_name
+            SELECT TABLE_NAME AS `table_name`
             FROM information_schema.tables
-            WHERE table_schema = DATABASE()
-              AND table_type = 'BASE TABLE'
-            ORDER BY table_name
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_TYPE = 'BASE TABLE'
+            ORDER BY TABLE_NAME
             "#,
         )
         .fetch_all(&self.pool)
@@ -53,11 +53,13 @@ impl DatabaseIntrospector for MysqlIntrospector {
     async fn list_columns(&self, table: &str) -> anyhow::Result<Vec<Column>> {
         let rows = sqlx::query(
             r#"
-            SELECT column_name, data_type, is_nullable
+            SELECT COLUMN_NAME  AS `column_name`,
+                   DATA_TYPE    AS `data_type`,
+                   IS_NULLABLE  AS `is_nullable`
             FROM information_schema.columns
-            WHERE table_schema = DATABASE()
-              AND table_name = ?
-            ORDER BY ordinal_position
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = ?
+            ORDER BY ORDINAL_POSITION
             "#,
         )
         .bind(table)

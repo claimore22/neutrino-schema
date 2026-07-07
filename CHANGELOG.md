@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented here.
 
+## [0.2.2] - 2026-07-07
+
+### Added
+- `examples/saas-subscription/` — 7-table SaaS subscription platform schema
+  and README showcase demonstrating neutrino-schema output across all types
+  (BOOLEAN, JSONB, TIMESTAMPTZ, VARCHAR, TEXT, BIGINT, DECIMAL/cents).
+
 ## [0.2.1] - 2026-07-07
 
 ### Fixed

@@ -1,6 +1,6 @@
 # neutrino-schema
 
-Schema-to-Rust compiler pipeline. Introspects PostgreSQL databases, builds an intermediate schema representation, and generates strongly typed Rust models.
+SQlx Schema-to-Rust compiler pipeline. Introspects PostgreSQL databases, builds an intermediate schema representation, and generates strongly typed Rust models.
 
 ## Pipeline
 

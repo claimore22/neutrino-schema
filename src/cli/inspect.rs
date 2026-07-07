@@ -1,8 +1,7 @@
-use std::path::Path;
-
 use clap::Args;
 
-use crate::codegen::{generate_files, generate_struct, RenderMode};
+use crate::codegen::{generate_struct, RenderMode};
+use crate::config::GeneratorConfig;
 use crate::ir::{RelationStrategy, SchemaIR, TableIR};
 use crate::introspect::{DatabaseIntrospector, PostgresIntrospector};
 
@@ -47,10 +46,14 @@ impl InspectCommand {
             }
 
             let schema = SchemaIR::from_tables(tables, RelationStrategy::NamingHeuristic);
-            let output_dir = Path::new("generated");
-            generate_files(&schema, output_dir, mode)?;
+            let cfg = GeneratorConfig {
+                output_dir: "generated".into(),
+                module_name: "models".into(),
+                render_mode: mode,
+            };
+            crate::codegen::generate_files(&schema, &cfg)?;
 
-            println!("Generated {} tables to {:?}", schema.tables.len(), output_dir);
+            println!("Generated {} tables to {:?}", schema.tables.len(), cfg.output_dir);
 
             println!("Potential relations: {}", schema.relations.len());
             println!("Strategy: Naming heuristic");

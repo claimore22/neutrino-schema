@@ -1,6 +1,8 @@
+mod generate;
 mod inspect;
 
 use clap::{Parser, Subcommand};
+use generate::GenerateCommand;
 use inspect::InspectCommand;
 
 #[derive(Parser)]
@@ -12,6 +14,8 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
-    /// Inspect a database and generate Rust structs
+    /// Inspect a database and print structs to stdout
     Inspect(InspectCommand),
+    /// Generate Rust model files from a database schema
+    Generate(GenerateCommand),
 }

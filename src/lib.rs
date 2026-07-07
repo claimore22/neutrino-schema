@@ -6,6 +6,7 @@
 pub mod types;
 pub mod ir;
 pub mod codegen;
+pub mod config;
 
 #[cfg(feature = "postgres")]
 pub mod introspect;

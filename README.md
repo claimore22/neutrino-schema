@@ -7,6 +7,27 @@
 
 A schema-to-Rust compiler pipeline for generating strongly typed Rust code from databases.
 
+```sql
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    email TEXT NOT NULL,
+    display_name VARCHAR(100)
+);
+```
+
+```bash
+neutrino-schema generate --database-url $DATABASE_URL --output src/models
+```
+
+```rust
+#[derive(Debug, Clone)]
+pub struct Users {
+    pub id: i64,
+    pub email: String,
+    pub display_name: Option<String>,
+}
+```
+
 ## Overview
 
 `neutrino-schema` simplifies Rust application development by converting database schemas into strongly typed Rust structures.

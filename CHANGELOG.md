@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented here.
 
+## [0.1.3] - 2026-07-06
+
+### Added
+- `command-line-utilities` category in Cargo.toml for crates.io discovery.
+- Before/after SQL-to-Rust example in README for instant value demonstration.
+- Cache-busting query parameters on shields.io and docs.rs badge URLs.
+
 ## [0.1.2] - 2026-07-06
 
 ### Added

@@ -54,7 +54,6 @@ impl InspectCommand {
             crate::codegen::generate_files(&schema, &cfg)?;
 
             println!("Generated {} tables to {:?}", schema.tables.len(), cfg.output_dir);
-
             println!("Potential relations: {}", schema.relations.len());
             println!("Strategy: Naming heuristic");
             println!("Verification: None (database foreign keys were not consulted)");

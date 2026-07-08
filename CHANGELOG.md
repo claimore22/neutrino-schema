@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented here.
 
+## [0.3.1] - 2026-07-07
+
+### Changed
+- Replaced `atty` (unmaintained, RUSTSEC-2024-0375) with `std::io::IsTerminal`
+  (stable since Rust 1.70).  One fewer dependency, zero behavior change.
+
 ## [0.3.0] - 2026-07-07
 
 ### Added

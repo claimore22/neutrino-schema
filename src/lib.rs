@@ -54,7 +54,7 @@
 //! neutrino-schema generate
 //!
 //! # All flags still work
-//! neutrino-schema generate --database-url "mysql://user:pass@localhost/mydb" --output src/models
+//! neutrino-schema generate --database-url "mysql://user:pass@localhost/mydb" --output src/entities
 //! ```
 
 pub mod types;

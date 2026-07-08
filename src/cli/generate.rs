@@ -29,7 +29,10 @@ pub struct GenerateCommand {
     #[arg(long, default_value = "default")]
     pub database: String,
 
-    /// Only generate structs for these tables (repeatable: --table users --table posts).
+    /// Only generate structs for these tables.
+    ///
+    /// Repeatable (`--table users --table posts`) and supports comma and
+    /// semicolon delimiters (`--table users,posts`, `--table "users;posts"`).
     #[arg(long)]
     pub table: Vec<String>,
 
@@ -66,13 +69,13 @@ impl GenerateCommand {
             .map(|p| p.display_name().to_string())
             .unwrap_or_else(|| "Database".into());
 
-        println!("Using database \"{}\"", self.database);
-        println!("Inspecting {provider}...");
+        eprintln!("Using database \"{}\"", self.database);
+        eprintln!("Inspecting {provider}...");
 
         let table_names = if self.table.is_empty() {
             introspector.list_tables().await?
         } else {
-            self.table.clone()
+            normalize_table_names(&self.table)
         };
 
         let tables = crate::cli::introspect_tables(introspector.as_ref(), &table_names).await?;
@@ -82,7 +85,7 @@ impl GenerateCommand {
         let output_dir = self
             .output
             .clone()
-            .unwrap_or_else(|| PathBuf::from("./src/models"));
+            .unwrap_or_else(|| PathBuf::from("./src/entities"));
 
         let config = GeneratorConfig {
             output_dir,
@@ -92,16 +95,16 @@ impl GenerateCommand {
 
         crate::codegen::generate_files(&schema, &config)?;
 
-        println!(
+        eprintln!(
             "✓ Generated {} tables to {:?}",
             schema.tables.len(),
             config.output_dir,
         );
 
         if !schema.relations.is_empty() {
-            println!("  Relations: {} (naming heuristic)", schema.relations.len());
+            eprintln!("  Relations: {} (naming heuristic)", schema.relations.len());
             for r in &schema.relations {
-                println!(
+                eprintln!(
                     "    {}.{} → {}.{}",
                     r.from_table, r.from_field, r.to_table, r.to_field
                 );
@@ -168,7 +171,7 @@ impl GenerateCommand {
         if !self.non_interactive && std::io::stdin().is_terminal() {
             let url = self.prompt_database_url()?;
             self.save_url_to_config(&url)?;
-            println!("✓ Saved to neutrino-schema.toml");
+            eprintln!("✓ Saved to neutrino-schema.toml");
             return Ok(url);
         }
 
@@ -246,13 +249,13 @@ impl GenerateCommand {
             return Ok(());
         }
 
-        println!("Using DATABASE_URL from environment.");
-        println!("No neutrino-schema.toml found.");
+        eprintln!("Using DATABASE_URL from environment.");
+        eprintln!("No neutrino-schema.toml found.");
 
         let answer = self.prompt_yes_no("Save this configuration for future runs? [y/N]")?;
         if answer {
             self.save_url_to_config(url)?;
-            println!("✓ Saved to neutrino-schema.toml");
+            eprintln!("✓ Saved to neutrino-schema.toml");
         }
 
         Ok(())
@@ -267,5 +270,56 @@ impl GenerateCommand {
         io::stdin().read_line(&mut input)?;
         let trimmed = input.trim().to_lowercase();
         Ok(trimmed == "y" || trimmed == "yes")
+    }
+}
+
+pub(crate) fn normalize_table_names(values: &[String]) -> Vec<String> {
+    values
+        .iter()
+        .flat_map(|s| s.split([',', ';']))
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_multiple_table_formats() {
+        let input = vec![
+            "users".to_string(),
+            "notifications,orders".to_string(),
+            "logs;events".to_string(),
+        ];
+
+        let result = normalize_table_names(&input);
+
+        assert_eq!(
+            result,
+            vec![
+                "users".to_string(),
+                "notifications".to_string(),
+                "orders".to_string(),
+                "logs".to_string(),
+                "events".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn deduplicates_empty_segments() {
+        let input = vec!["users,,posts".to_string(), ";".to_string()];
+        let result = normalize_table_names(&input);
+        assert_eq!(result, vec!["users".to_string(), "posts".to_string()]);
+    }
+
+    #[test]
+    fn trims_whitespace() {
+        let input = vec![" users , posts ".to_string()];
+        let result = normalize_table_names(&input);
+        assert_eq!(result, vec!["users".to_string(), "posts".to_string()]);
     }
 }

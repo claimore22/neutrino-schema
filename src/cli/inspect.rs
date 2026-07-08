@@ -53,12 +53,12 @@ impl InspectCommand {
             };
             crate::codegen::generate_files(&schema, &cfg)?;
 
-            println!("Generated {} tables to {:?}", schema.tables.len(), cfg.output_dir);
-            println!("Potential relations: {}", schema.relations.len());
-            println!("Strategy: Naming heuristic");
-            println!("Verification: None (database foreign keys were not consulted)");
+            eprintln!("Generated {} tables to {:?}", schema.tables.len(), cfg.output_dir);
+            eprintln!("Potential relations: {}", schema.relations.len());
+            eprintln!("Strategy: Naming heuristic");
+            eprintln!("Verification: None (database foreign keys were not consulted)");
             for r in &schema.relations {
-                println!("  {}.{} -> {}.{}", r.from_table, r.from_field, r.to_table, r.to_field);
+                eprintln!("  {}.{} -> {}.{}", r.from_table, r.from_field, r.to_table, r.to_field);
             }
         } else if let Some(table_name) = &self.table {
             let columns = introspector.list_columns(table_name).await?;

@@ -28,6 +28,12 @@ pub struct Users {
 }
 ```
 
+## Supported databases
+
+- PostgreSQL
+- MySQL / MariaDB
+- SQLite
+
 ## Overview
 
 `neutrino-schema` simplifies Rust application development by converting database schemas into strongly typed Rust structures.

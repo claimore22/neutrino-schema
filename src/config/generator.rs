@@ -12,7 +12,7 @@ use crate::codegen::RenderMode;
 ///
 /// ```toml
 /// [generator]
-/// output = "src/models"
+/// output = "src/entities"
 /// module_name = "models"
 /// render_mode = "clean"
 /// ```
@@ -31,12 +31,12 @@ pub struct GeneratorConfig {
     pub render_mode: RenderMode,
 }
 
-/// Default config: output to `./src/models`, module name `"models"`,
+/// Default config: output to `./src/entities`, module name `"models"`,
 /// [`RenderMode::Clean`](crate::RenderMode).
 impl Default for GeneratorConfig {
     fn default() -> Self {
         Self {
-            output_dir: PathBuf::from("./src/models"),
+            output_dir: PathBuf::from("./src/entities"),
             module_name: "models".into(),
             render_mode: RenderMode::Clean,
         }
@@ -45,7 +45,7 @@ impl Default for GeneratorConfig {
 
 #[doc(hidden)]
 pub fn default_output_dir() -> PathBuf {
-    PathBuf::from("./src/models")
+    PathBuf::from("./src/entities")
 }
 
 #[doc(hidden)]

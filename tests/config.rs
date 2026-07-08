@@ -20,7 +20,7 @@ fn default_config_empty_databases() {
 #[test]
 fn default_config_has_default_generator() {
     let config = ProjectConfig::default();
-    assert_eq!(config.generator.output_dir, PathBuf::from("./src/models"));
+    assert_eq!(config.generator.output_dir, PathBuf::from("./src/entities"));
     assert_eq!(config.generator.module_name, "models");
 }
 

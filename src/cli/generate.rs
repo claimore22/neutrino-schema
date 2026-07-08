@@ -1,3 +1,4 @@
+use std::io::IsTerminal;
 use std::path::PathBuf;
 
 use clap::Args;
@@ -164,7 +165,7 @@ impl GenerateCommand {
         }
 
         // 4. Interactive prompt (if terminal)
-        if !self.non_interactive && atty::is(atty::Stream::Stdin) {
+        if !self.non_interactive && std::io::stdin().is_terminal() {
             let url = self.prompt_database_url()?;
             self.save_url_to_config(&url)?;
             println!("✓ Saved to neutrino-schema.toml");
@@ -235,7 +236,7 @@ impl GenerateCommand {
 
     /// Ask the user whether to save the environment variable URL to config.
     fn maybe_save_url_to_config(&self, url: &str) -> anyhow::Result<()> {
-        if self.non_interactive || !atty::is(atty::Stream::Stdin) {
+        if self.non_interactive || !std::io::stdin().is_terminal() {
             return Ok(());
         }
 

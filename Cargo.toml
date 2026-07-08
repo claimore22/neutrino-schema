@@ -1,11 +1,11 @@
 [package]
 name = "neutrino-schema"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/claimore22/neutrino-schema"
 homepage = "https://github.com/claimore22/neutrino-schema"
-rust-version = "1.85"
+rust-version = "1.94"
 description = "Schema-to-Rust compiler pipeline for generating strongly typed Rust models"
 keywords = ["database", "schema", "codegen", "rust", "sqlx"]
 categories = ["database", "development-tools", "command-line-utilities"]
@@ -31,7 +31,7 @@ clap = { version = "4", optional = true, features = ["derive", "env"] }
 tokio = { version = "1", optional = true, default-features = false, features = ["rt-multi-thread", "macros"] }
 sqlx = { version = "0.9", optional = true, default-features = false, features = ["runtime-tokio"] }
 serde = { version = "1", optional = true, features = ["derive"] }
-toml = { version = "0.8", optional = true }
+toml = { version = "1.1", optional = true }
 
 [[test]]
 name = "sqlite_integration"

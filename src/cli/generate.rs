@@ -3,22 +3,30 @@ use std::path::PathBuf;
 use clap::Args;
 
 use crate::codegen::RenderMode;
-use crate::config::GeneratorConfig;
-use crate::introspect::DatabaseIntrospector;
+use crate::config::{DatabaseConfig, GeneratorConfig, ProjectConfig};
+use crate::cli::url_to_introspector;
 
 /// Generate Rust model files from a database schema.
 ///
 /// Connects to the database, introspects the public schema, and writes
 /// one `.rs` file per table (plus a `mod.rs`) to the output directory.
+///
+/// When run without arguments, `neutrino-schema generate` looks for a
+/// `neutrino-schema.toml` file in the current directory, or prompts
+/// interactively for a database URL.
 #[derive(Args)]
 pub struct GenerateCommand {
     /// Database connection string (also read from `DATABASE_URL` env).
-    #[arg(long, env = "DATABASE_URL")]
-    pub database_url: String,
+    #[arg(long)]
+    pub database_url: Option<String>,
 
-    /// Directory to write generated files into (default: `./src/models`).
-    #[arg(short, long, default_value = "./src/models")]
-    pub output: PathBuf,
+    /// Directory to write generated files into.
+    #[arg(short, long)]
+    pub output: Option<PathBuf>,
+
+    /// Named database connection from `neutrino-schema.toml` (default: `default`).
+    #[arg(long, default_value = "default")]
+    pub database: String,
 
     /// Only generate structs for these tables (repeatable: --table users --table posts).
     #[arg(long)]
@@ -27,19 +35,38 @@ pub struct GenerateCommand {
     /// Include raw type and nullability comments in generated structs.
     #[arg(long)]
     pub debug: bool,
+
+    /// Save the resolved database URL to `neutrino-schema.toml`.
+    #[arg(long)]
+    pub save: bool,
+
+    /// Skip all interactive prompts; fail if a database URL cannot be resolved.
+    #[arg(long)]
+    pub non_interactive: bool,
+
+    /// Generate models from all configured databases (not yet implemented).
+    #[arg(long)]
+    pub all: bool,
 }
 
 impl GenerateCommand {
     /// Execute the generate subcommand.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the database connection fails, introspection fails,
-    /// or files cannot be written to the output directory.
     pub async fn run(&self) -> anyhow::Result<()> {
         use crate::ir::RelationStrategy;
 
-        let introspector = self.connect().await?;
+        if self.all {
+            anyhow::bail!("--all is not yet implemented");
+        }
+
+        let url = self.resolve_database_url()?;
+        let introspector = url_to_introspector(&url).await?;
+
+        let provider = crate::config::detect_provider(&url)
+            .map(|p| p.display_name().to_string())
+            .unwrap_or_else(|| "Database".into());
+
+        println!("Using database \"{}\"", self.database);
+        println!("Inspecting {provider}...");
 
         let table_names = if self.table.is_empty() {
             introspector.list_tables().await?
@@ -51,76 +78,193 @@ impl GenerateCommand {
 
         let schema = crate::ir::SchemaIR::from_tables(tables, RelationStrategy::NamingHeuristic);
 
+        let output_dir = self
+            .output
+            .clone()
+            .unwrap_or_else(|| PathBuf::from("./src/models"));
+
         let config = GeneratorConfig {
-            output_dir: self.output.clone(),
+            output_dir,
             module_name: "models".into(),
             render_mode: if self.debug { RenderMode::Debug } else { RenderMode::Clean },
         };
 
         crate::codegen::generate_files(&schema, &config)?;
 
-        println!("Generated {} tables to {:?}", schema.tables.len(), config.output_dir);
-        println!("Potential relations: {}", schema.relations.len());
-        println!("Strategy: Naming heuristic");
-        println!("Verification: None (database foreign keys were not consulted)");
-        for r in &schema.relations {
-            println!("  {}.{} -> {}.{}", r.from_table, r.from_field, r.to_table, r.to_field);
+        println!(
+            "✓ Generated {} tables to {:?}",
+            schema.tables.len(),
+            config.output_dir,
+        );
+
+        if !schema.relations.is_empty() {
+            println!("  Relations: {} (naming heuristic)", schema.relations.len());
+            for r in &schema.relations {
+                println!(
+                    "    {}.{} → {}.{}",
+                    r.from_table, r.from_field, r.to_table, r.to_field
+                );
+            }
         }
 
         Ok(())
     }
 
-    /// Create the appropriate introspector for the database URL.
-    #[cfg(feature = "postgres")]
-    async fn connect(&self) -> anyhow::Result<Box<dyn DatabaseIntrospector>> {
-        if self.database_url.starts_with("sqlite:") {
-            return self.connect_sqlite().await;
+    /// Resolve the database URL from CLI flags, environment, config file,
+    /// or interactive prompt — in that order.
+    fn resolve_database_url(&self) -> anyhow::Result<String> {
+        // 1. CLI flag
+        if let Some(url) = &self.database_url {
+            if self.save {
+                self.save_url_to_config(url)?;
+            }
+            return Ok(url.clone());
         }
-        if self.database_url.starts_with("mysql:") {
-            return self.connect_mysql().await;
+
+        // 2. Environment variable
+        if let Ok(url) = std::env::var("DATABASE_URL") {
+            self.maybe_save_url_to_config(&url)?;
+            return Ok(url);
         }
-        let pool = sqlx::postgres::PgPoolOptions::new()
-            .max_connections(1)
-            .connect(&self.database_url)
-            .await?;
-        Ok(Box::new(crate::introspect::PostgresIntrospector::new(pool)))
-    }
 
-    /// Create the appropriate introspector for the database URL (no Postgres).
-    #[cfg(all(not(feature = "postgres"), any(feature = "sqlite", feature = "mysql")))]
-    async fn connect(&self) -> anyhow::Result<Box<dyn DatabaseIntrospector>> {
-        if self.database_url.starts_with("mysql:") {
-            return self.connect_mysql().await;
+        // 3. Config file
+        if let Some(config) = ProjectConfig::load_from_cwd()? {
+            if let Some(db) = config.databases.get(&self.database) {
+                if let Some(url) = &db.url {
+                    return Ok(url.clone());
+                }
+            }
+
+            // Named database exists but has no URL
+            if config.databases.contains_key(&self.database) {
+                // Fall through to prompt or error
+            } else {
+                // Named database doesn't exist — list available
+                let mut msg = format!(
+                    "Database \"{}\" not found in neutrino-schema.toml.\n",
+                    self.database,
+                );
+                let mut keys: Vec<&String> = config.databases.keys().collect();
+                keys.sort();
+                if keys.is_empty() {
+                    msg.push_str("\nNo databases configured.\n");
+                } else {
+                    msg.push_str("\nAvailable databases:\n");
+                    for key in keys {
+                        msg.push_str(&format!("  {key}\n"));
+                    }
+                }
+                msg.push_str(&format!(
+                    "\nCreate it with:\n  neutrino-schema generate \
+                     --database {} --database-url <url> --save\n",
+                    self.database,
+                ));
+                anyhow::bail!("{msg}");
+            }
         }
-        self.connect_sqlite().await
+
+        // 4. Interactive prompt (if terminal)
+        if !self.non_interactive && atty::is(atty::Stream::Stdin) {
+            let url = self.prompt_database_url()?;
+            self.save_url_to_config(&url)?;
+            println!("✓ Saved to neutrino-schema.toml");
+            return Ok(url);
+        }
+
+        // 5. Nothing worked
+        anyhow::bail!(
+            "No database URL found.\n\n\
+             Pass --database-url, or set the DATABASE_URL environment variable,\n\
+             or create a neutrino-schema.toml file.\n\n\
+             Quick start:\n  neutrino-schema init --database-url \"postgres://localhost/mydb\"\n  neutrino-schema generate"
+        )
     }
 
-    /// Connect to SQLite — returns an error if the `sqlite` feature is disabled.
-    #[cfg(feature = "sqlite")]
-    async fn connect_sqlite(&self) -> anyhow::Result<Box<dyn DatabaseIntrospector>> {
-        let pool = sqlx::sqlite::SqlitePool::connect(&self.database_url).await?;
-        Ok(Box::new(crate::introspect::SqliteIntrospector::new(pool)))
+    /// Prompt the user for a database URL via stdin.
+    fn prompt_database_url(&self) -> anyhow::Result<String> {
+        use std::io::{self, Write};
+        print!("Database URL: ");
+        io::stdout().flush()?;
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        let url = input.trim().to_string();
+        if url.is_empty() {
+            anyhow::bail!("Database URL cannot be empty");
+        }
+        Ok(url)
     }
 
-    /// Stub — SQLite support not compiled in.
-    #[cfg(all(feature = "postgres", not(feature = "sqlite")))]
-    async fn connect_sqlite(&self) -> anyhow::Result<Box<dyn DatabaseIntrospector>> {
-        anyhow::bail!("SQLite support not enabled (enable the `sqlite` feature)")
+    /// Save the given URL to `neutrino-schema.toml`, merging with any
+    /// existing configuration.
+    fn save_url_to_config(&self, url: &str) -> anyhow::Result<()> {
+        let mut config = match ProjectConfig::load_from_cwd()? {
+            Some(c) => c,
+            None => ProjectConfig::default(),
+        };
+
+        let provider = crate::config::detect_provider(url);
+
+        let db_entry = config
+            .databases
+            .entry(self.database.clone())
+            .or_insert_with(DatabaseConfig::default);
+
+        db_entry.url = Some(url.to_string());
+
+        // Only set provider if it wasn't already explicitly configured
+        if db_entry.provider.is_none() {
+            db_entry.provider = provider;
+        }
+
+        // Validate provider matches URL
+        if let Some(ref configured_provider) = db_entry.provider {
+            if let Some(detected_provider) = &provider {
+                if configured_provider != detected_provider {
+                    anyhow::bail!(
+                        "Provider mismatch: configured \"{cp}\" but URL uses \"{dp}\"\n\
+                         Remove `provider` from neutrino-schema.toml or correct it.",
+                        cp = configured_provider.display_name(),
+                        dp = detected_provider.display_name(),
+                    );
+                }
+            }
+        }
+
+        config.save_to_cwd()
     }
 
-    /// Connect to MySQL — returns an error if the `mysql` feature is disabled.
-    #[cfg(feature = "mysql")]
-    async fn connect_mysql(&self) -> anyhow::Result<Box<dyn DatabaseIntrospector>> {
-        let pool = sqlx::mysql::MySqlPoolOptions::new()
-            .max_connections(1)
-            .connect(&self.database_url)
-            .await?;
-        Ok(Box::new(crate::introspect::MysqlIntrospector::new(pool)))
+    /// Ask the user whether to save the environment variable URL to config.
+    fn maybe_save_url_to_config(&self, url: &str) -> anyhow::Result<()> {
+        if self.non_interactive || !atty::is(atty::Stream::Stdin) {
+            return Ok(());
+        }
+
+        // Only prompt if no config file exists
+        let path = std::env::current_dir()?.join("neutrino-schema.toml");
+        if path.exists() {
+            return Ok(());
+        }
+
+        println!("Using DATABASE_URL from environment.");
+        println!("No neutrino-schema.toml found.");
+
+        let answer = self.prompt_yes_no("Save this configuration for future runs? [y/N]")?;
+        if answer {
+            self.save_url_to_config(url)?;
+            println!("✓ Saved to neutrino-schema.toml");
+        }
+
+        Ok(())
     }
 
-    /// Stub — MySQL support not compiled in.
-    #[cfg(all(feature = "postgres", not(feature = "mysql")))]
-    async fn connect_mysql(&self) -> anyhow::Result<Box<dyn DatabaseIntrospector>> {
-        anyhow::bail!("MySQL support not enabled (enable the `mysql` feature)")
+    /// Prompt for a yes/no answer.
+    fn prompt_yes_no(&self, question: &str) -> anyhow::Result<bool> {
+        use std::io::{self, Write};
+        print!("{question} ");
+        io::stdout().flush()?;
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        let trimmed = input.trim().to_lowercase();
+        Ok(trimmed == "y" || trimmed == "yes")
     }
 }

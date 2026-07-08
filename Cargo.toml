@@ -1,6 +1,6 @@
 [package]
 name = "neutrino-schema"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/claimore22/neutrino-schema"
@@ -22,7 +22,7 @@ default = ["postgres", "sqlite", "mysql", "cli"]
 postgres = ["sqlx/postgres", "sqlx/tls-rustls-aws-lc-rs"]
 sqlite = ["sqlx/sqlite"]
 mysql = ["sqlx/mysql", "sqlx/tls-rustls-aws-lc-rs"]
-cli = ["dep:clap", "dep:tokio"]
+cli = ["dep:clap", "dep:tokio", "dep:serde", "dep:toml", "dep:atty"]
 
 [dependencies]
 anyhow = "1"
@@ -30,6 +30,9 @@ async-trait = "0.1"
 clap = { version = "4", optional = true, features = ["derive", "env"] }
 tokio = { version = "1", optional = true, default-features = false, features = ["rt-multi-thread", "macros"] }
 sqlx = { version = "0.9", optional = true, default-features = false, features = ["runtime-tokio"] }
+serde = { version = "1", optional = true, features = ["derive"] }
+toml = { version = "0.8", optional = true }
+atty = { version = "0.2", optional = true }
 
 [[test]]
 name = "sqlite_integration"

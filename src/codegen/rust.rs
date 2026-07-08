@@ -35,6 +35,8 @@ pub fn to_struct_name(table_name: &str) -> String {
 ///
 /// Used by [`generate_struct`] and [`generate_files`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "cli", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "cli", serde(rename_all = "lowercase"))]
 pub enum RenderMode {
     /// Clean output — no comments on fields.
     Clean,

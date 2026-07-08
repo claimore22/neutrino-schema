@@ -1,9 +1,9 @@
 use clap::Args;
 
+use crate::cli::url_to_introspector;
 use crate::codegen::{generate_struct, RenderMode};
 use crate::config::GeneratorConfig;
 use crate::ir::{RelationStrategy, SchemaIR};
-use crate::introspect::DatabaseIntrospector;
 
 /// Inspect a database and print generated structs.
 ///
@@ -34,7 +34,7 @@ impl InspectCommand {
     ///
     /// Returns an error if the database connection fails or introspection queries fail.
     pub async fn run(&self) -> anyhow::Result<()> {
-        let introspector = self.connect().await?;
+        let introspector = url_to_introspector(&self.database_url).await?;
 
         let mode = if self.comments {
             RenderMode::Debug
@@ -84,59 +84,5 @@ impl InspectCommand {
         }
 
         Ok(())
-    }
-
-    /// Create the appropriate introspector for the database URL.
-    #[cfg(feature = "postgres")]
-    async fn connect(&self) -> anyhow::Result<Box<dyn DatabaseIntrospector>> {
-        if self.database_url.starts_with("sqlite:") {
-            return self.connect_sqlite().await;
-        }
-        if self.database_url.starts_with("mysql:") {
-            return self.connect_mysql().await;
-        }
-        let pool = sqlx::postgres::PgPoolOptions::new()
-            .max_connections(1)
-            .connect(&self.database_url)
-            .await?;
-        Ok(Box::new(crate::introspect::PostgresIntrospector::new(pool)))
-    }
-
-    /// Create the appropriate introspector for the database URL (no Postgres).
-    #[cfg(all(not(feature = "postgres"), any(feature = "sqlite", feature = "mysql")))]
-    async fn connect(&self) -> anyhow::Result<Box<dyn DatabaseIntrospector>> {
-        if self.database_url.starts_with("mysql:") {
-            return self.connect_mysql().await;
-        }
-        self.connect_sqlite().await
-    }
-
-    /// Connect to SQLite — returns an error if the `sqlite` feature is disabled.
-    #[cfg(feature = "sqlite")]
-    async fn connect_sqlite(&self) -> anyhow::Result<Box<dyn DatabaseIntrospector>> {
-        let pool = sqlx::sqlite::SqlitePool::connect(&self.database_url).await?;
-        Ok(Box::new(crate::introspect::SqliteIntrospector::new(pool)))
-    }
-
-    /// Stub — SQLite support not compiled in.
-    #[cfg(all(feature = "postgres", not(feature = "sqlite")))]
-    async fn connect_sqlite(&self) -> anyhow::Result<Box<dyn DatabaseIntrospector>> {
-        anyhow::bail!("SQLite support not enabled (enable the `sqlite` feature)")
-    }
-
-    /// Connect to MySQL — returns an error if the `mysql` feature is disabled.
-    #[cfg(feature = "mysql")]
-    async fn connect_mysql(&self) -> anyhow::Result<Box<dyn DatabaseIntrospector>> {
-        let pool = sqlx::mysql::MySqlPoolOptions::new()
-            .max_connections(1)
-            .connect(&self.database_url)
-            .await?;
-        Ok(Box::new(crate::introspect::MysqlIntrospector::new(pool)))
-    }
-
-    /// Stub — MySQL support not compiled in.
-    #[cfg(all(feature = "postgres", not(feature = "mysql")))]
-    async fn connect_mysql(&self) -> anyhow::Result<Box<dyn DatabaseIntrospector>> {
-        anyhow::bail!("MySQL support not enabled (enable the `mysql` feature)")
     }
 }

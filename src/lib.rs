@@ -42,14 +42,19 @@
 //! # Quick start (CLI)
 //!
 //! ```bash
-//! # PostgreSQL
-//! neutrino-schema generate --database-url "postgres://localhost/mydb" --output src/models
+//! # First run — creates neutrino-schema.toml
+//! neutrino-schema generate
+//! # → prompts for database URL, saves it, generates models
 //!
-//! # MySQL
+//! # Subsequent runs — just works from config
+//! neutrino-schema generate
+//!
+//! # Explicit setup (CI / scripting)
+//! neutrino-schema init --database-url "postgres://localhost/mydb"
+//! neutrino-schema generate
+//!
+//! # All flags still work
 //! neutrino-schema generate --database-url "mysql://user:pass@localhost/mydb" --output src/models
-//!
-//! # SQLite
-//! neutrino-schema generate --database-url "sqlite:./dev.db" --output src/models
 //! ```
 
 pub mod types;

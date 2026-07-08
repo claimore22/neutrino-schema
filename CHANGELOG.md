@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented here.
 
+## [0.3.0] - 2026-07-07
+
+### Added
+- **`neutrino-schema init`** — creates `neutrino-schema.toml` with
+  `[databases.default]` and `[generator]` sections (`--database-url` to
+  pre-fill, `--force` to overwrite).
+- **Auto-bootstrap** — `neutrino-schema generate` prompts for a database URL
+  on first run, saves it to `neutrino-schema.toml`, and reuses it thereafter.
+- **Named database connections** — `[databases.*]` HashMap in config supports
+  future multi-database projects; `--database <name>` flag selects which
+  connection to use.
+- **`version = 1`** — top-level config version for future migration paths.
+- **`DatabaseProvider` enum** — `Postgres`, `MySql`, `Sqlite`, inferred from
+  URL scheme (or explicitly set). Provider mismatch produces a clear error.
+- **`--save` flag** — explicitly persists a CLI-provided URL to config.
+- **`--non-interactive` / `--all` flags** — reserved for CI and multi-db.
+- **Shared `url_to_introspector()`** — extracted from duplicated connect
+  helpers in `generate.rs` / `inspect.rs`.
+- **Config test suite** (`tests/config.rs`) — 12 tests covering defaults,
+  round-trip, provider inference, TOML rename, partial configs,
+  multiple databases.
+
+### Changed
+- `GeneratorConfig` and `RenderMode` gain serde derives (behind `cli` feature)
+  for config file serialization.
+- `GeneratorConfig.output_dir` serializes as `output` in TOML.
+- Reduced CLI boilerplate: `--database-url` is optional (env + config + prompt
+  chain fills the gap).
+
 ## [0.2.2] - 2026-07-07
 
 ### Added

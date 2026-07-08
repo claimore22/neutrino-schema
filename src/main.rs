@@ -8,6 +8,7 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Command::Inspect(inspect) => inspect.run().await?,
         Command::Generate(generate) => generate.run().await?,
+        Command::Init(init) => init.run()?,
     }
 
     Ok(())

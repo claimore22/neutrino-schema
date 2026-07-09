@@ -5,7 +5,7 @@
 [![docs.rs](https://docs.rs/neutrino-schema/badge.svg?refresh=1)](https://docs.rs/neutrino-schema)
 [![License](https://img.shields.io/crates/l/neutrino-schema.svg?refresh=1)](https://github.com/claimore22/neutrino-schema)
 
-A schema-to-Rust compiler pipeline for generating strongly typed Rust code from databases.
+Compile relational database schemas into strongly typed Rust types.
 
 ```sql
 CREATE TABLE users (

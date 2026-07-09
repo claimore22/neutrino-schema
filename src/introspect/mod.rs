@@ -12,6 +12,8 @@ mod postgres;
 mod sqlite;
 #[cfg(feature = "mysql")]
 mod mysql;
+#[cfg(feature = "mysql")]
+mod mysql_enum;
 
 pub use column::*;
 pub use traits::*;
@@ -21,3 +23,5 @@ pub use postgres::*;
 pub use sqlite::*;
 #[cfg(feature = "mysql")]
 pub use mysql::*;
+#[cfg(feature = "mysql")]
+pub use mysql_enum::*;

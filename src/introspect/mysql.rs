@@ -1,9 +1,9 @@
 use sqlx::{MySqlPool, Row};
 
-use crate::ir::FieldIR;
-use crate::introspect::Column;
-use crate::introspect::DatabaseIntrospector;
+use crate::ir::{EnumIR, EnumVariantIR, FieldIR};
+use crate::introspect::{parse_mysql_enum, Column, DatabaseIntrospector};
 use crate::types::{self, MysqlType};
+use crate::util::naming::{enum_variant_name, to_struct_name};
 
 /// MySQL/MariaDB implementation of [`DatabaseIntrospector`](crate::introspect::DatabaseIntrospector).
 ///
@@ -78,5 +78,54 @@ impl DatabaseIntrospector for MysqlIntrospector {
                 }
             })
             .collect())
+    }
+
+    async fn introspect_enums(&self) -> anyhow::Result<Vec<EnumIR>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT TABLE_NAME   AS `table_name`,
+                   COLUMN_NAME  AS `column_name`,
+                   COLUMN_TYPE  AS `column_type`
+            FROM information_schema.columns
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND DATA_TYPE = 'enum'
+            ORDER BY TABLE_NAME, ORDINAL_POSITION
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut enums = Vec::new();
+        for r in rows {
+            let table_name: String = r.get("table_name");
+            let column_name: String = r.get("column_name");
+            let column_type: String = r.get("column_type");
+
+            let Some(variants) = parse_mysql_enum(&column_type) else {
+                continue;
+            };
+
+            // Generate a unique Rust name from table + column
+            let db_name = format!("{}.{}", table_name, column_name);
+            let rust_name = to_struct_name(&db_name);
+            let schema = None; // MySQL does not have schema-qualified enums
+
+            let variants: Vec<EnumVariantIR> = variants
+                .into_iter()
+                .map(|v| EnumVariantIR {
+                    database_name: v.clone(),
+                    rust_name: enum_variant_name(&v),
+                })
+                .collect();
+
+            enums.push(EnumIR {
+                database_name: db_name,
+                rust_name,
+                variants,
+                schema,
+            });
+        }
+
+        Ok(enums)
     }
 }

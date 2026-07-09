@@ -1,5 +1,5 @@
 use crate::introspect::Column;
-use crate::ir::FieldIR;
+use crate::ir::{EnumIR, FieldIR};
 
 /// Abstraction for database introspection.
 ///
@@ -15,4 +15,10 @@ pub trait DatabaseIntrospector: Send + Sync {
     async fn list_columns(&self, table: &str) -> anyhow::Result<Vec<Column>>;
     /// Convert an introspected [`Column`] into a [`FieldIR`] for the IR pipeline.
     fn column_to_field(&self, col: &Column) -> FieldIR;
+    /// Introspect all enum types defined in the database.
+    ///
+    /// Returns an empty vec for databases without native enum support (SQLite).
+    async fn introspect_enums(&self) -> anyhow::Result<Vec<EnumIR>> {
+        Ok(Vec::new())
+    }
 }

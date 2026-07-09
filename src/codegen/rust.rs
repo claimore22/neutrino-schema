@@ -186,3 +186,97 @@ fn generate_struct_file(table: &TableIR, mode: RenderMode) -> String {
     out.push_str("}\n");
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generate_enum_defs_empty() {
+        let result = generate_enum_defs(&[]);
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn generate_enum_defs_single() {
+        let enums = vec![EnumIR::new("status", &["active".into(), "inactive".into(), "pending".into()], None)];
+        let result = generate_enum_defs(&enums);
+        assert!(result.contains("pub enum Status"));
+        assert!(result.contains("Active,"));
+        assert!(result.contains("Inactive,"));
+    }
+
+    #[test]
+    fn generate_enum_defs_multiple() {
+        let enums = vec![
+            EnumIR::new("mood", &["happy".into(), "sad".into()], None),
+            EnumIR::new("color", &["red".into(), "green".into(), "blue".into()], None),
+        ];
+        let result = generate_enum_defs(&enums);
+        assert!(result.contains("pub enum Mood"));
+        assert!(result.contains("pub enum Color"));
+        assert!(result.contains("Happy,"));
+        assert!(result.contains("Blue,"));
+    }
+
+    #[test]
+    fn generate_enum_defs_variant_with_hyphens() {
+        let enums = vec![EnumIR::new("review_status", &["needs-review".into(), "in-progress".into()], None)];
+        let result = generate_enum_defs(&enums);
+        assert!(result.contains("NeedsReview,"));
+        assert!(result.contains("InProgress,"));
+    }
+
+    #[test]
+    fn generate_struct_file_uses_enum_prefix() {
+        let enm = EnumIR::new("mood", &["happy".into(), "sad".into()], None);
+        let field = FieldIR {
+            name: "current_mood".into(),
+            ty: DbType::Enum(EnumRef { rust_name: enm.rust_name.clone() }),
+            nullable: false,
+            raw_type: "mood".into(),
+        };
+        let table = TableIR {
+            name: "users".into(),
+            fields: vec![field],
+        };
+        let result = generate_struct_file(&table, RenderMode::Clean);
+        assert!(result.contains("super::enums::Mood"));
+        assert!(!result.contains("super::enums::Option"));
+    }
+
+    #[test]
+    fn generate_struct_file_nullable_enum() {
+        let enm = EnumIR::new("mood", &["happy".into(), "sad".into()], None);
+        let field = FieldIR {
+            name: "current_mood".into(),
+            ty: DbType::Enum(EnumRef { rust_name: enm.rust_name.clone() }),
+            nullable: true,
+            raw_type: "mood".into(),
+        };
+        let table = TableIR {
+            name: "users".into(),
+            fields: vec![field],
+        };
+        let result = generate_struct_file(&table, RenderMode::Clean);
+        assert!(result.contains("Option<super::enums::Mood>"));
+    }
+
+    #[test]
+    fn generate_struct_keeps_bare_enum_name() {
+        let enm = EnumIR::new("mood", &["happy".into(), "sad".into()], None);
+        let field = FieldIR {
+            name: "current_mood".into(),
+            ty: DbType::Enum(EnumRef { rust_name: enm.rust_name.clone() }),
+            nullable: false,
+            raw_type: "mood".into(),
+        };
+        let table = TableIR {
+            name: "users".into(),
+            fields: vec![field],
+        };
+        let result = generate_struct(&table, RenderMode::Clean);
+        assert!(result.contains("Mood"));
+        assert!(!result.contains("super::enums"));
+    }
+}

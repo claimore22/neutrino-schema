@@ -4,7 +4,7 @@
 --   psql -U postgres -d saas_demo -f schema.sql
 --
 -- Then introspect with neutrino-schema:
---   neutrino-schema generate --database-url "postgres://localhost/saas_demo" --output src/models
+--   neutrino-schema generate --database-url "postgres://localhost/saas_demo" --output src/types
 
 CREATE TABLE users (
     id            BIGSERIAL    PRIMARY KEY,

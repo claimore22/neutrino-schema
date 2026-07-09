@@ -17,7 +17,7 @@ CREATE TABLE users (
 ```
 
 ```bash
-neutrino-schema generate --database-url $DATABASE_URL --output src/models
+neutrino-schema generate --database-url $DATABASE_URL --output src/types
 ```
 
 ```rust
@@ -79,7 +79,7 @@ cargo install neutrino-schema
 ```bash
 neutrino-schema generate \
     --database-url $DATABASE_URL \
-    --output src/models
+    --output src/types
 ```
 
 ## Design goals

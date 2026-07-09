@@ -44,7 +44,7 @@
 //! ```bash
 //! # First run — creates neutrino-schema.toml
 //! neutrino-schema generate
-//! # → prompts for database URL, saves it, generates models
+//! # → prompts for database URL, saves it, generates types
 //!
 //! # Subsequent runs — just works from config
 //! neutrino-schema generate

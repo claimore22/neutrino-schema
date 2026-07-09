@@ -13,7 +13,7 @@ use crate::codegen::RenderMode;
 /// ```toml
 /// [generator]
 /// output = "src/entities"
-/// module_name = "models"
+/// module_name = "types"
 /// render_mode = "clean"
 /// ```
 #[cfg_attr(feature = "cli", derive(serde::Serialize, serde::Deserialize))]
@@ -31,13 +31,13 @@ pub struct GeneratorConfig {
     pub render_mode: RenderMode,
 }
 
-/// Default config: output to `./src/entities`, module name `"models"`,
+/// Default config: output to `./src/entities`, module name `"types"`,
 /// [`RenderMode::Clean`](crate::RenderMode).
 impl Default for GeneratorConfig {
     fn default() -> Self {
         Self {
             output_dir: PathBuf::from("./src/entities"),
-            module_name: "models".into(),
+            module_name: "types".into(),
             render_mode: RenderMode::Clean,
         }
     }
@@ -50,7 +50,7 @@ pub fn default_output_dir() -> PathBuf {
 
 #[doc(hidden)]
 pub fn default_module_name() -> String {
-    "models".into()
+    "types".into()
 }
 
 #[doc(hidden)]

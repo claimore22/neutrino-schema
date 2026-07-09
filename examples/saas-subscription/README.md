@@ -1,6 +1,6 @@
 # SaaS Subscription Platform — neutrino-schema demo
 
-Seven PostgreSQL tables → fully typed Rust models in one command.
+Seven PostgreSQL tables → fully typed Rust types in one command.
 
 ## Before: 200 lines of SQL
 
@@ -31,10 +31,10 @@ CREATE TABLE subscriptions (
 -- 4 more tables …
 ```
 
-## After: generated Rust models
+## After: generated Rust types
 
 ```
-src/models/
+src/types/
 ├── mod.rs
 ├── users.rs
 ├── teams.rs
@@ -46,7 +46,7 @@ src/models/
 ```
 
 ```rust
-// src/models/users.rs
+// src/types/users.rs
 #[derive(Debug, Clone)]
 pub struct Users {
     pub id: i64,
@@ -59,7 +59,7 @@ pub struct Users {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-// src/models/teams.rs
+// src/types/teams.rs
 #[derive(Debug, Clone)]
 pub struct Teams {
     pub id: i64,
@@ -71,7 +71,7 @@ pub struct Teams {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-// src/models/subscriptions.rs
+// src/types/subscriptions.rs
 #[derive(Debug, Clone)]
 pub struct Subscriptions {
     pub id: i64,
@@ -106,10 +106,10 @@ api_keys.team_id → teams.id
 createdb saas_demo
 psql -d saas_demo -f schema.sql
 
-# 2. Generate models
+# 2. Generate types
 neutrino-schema generate \
     --database-url "postgres://localhost/saas_demo" \
-    --output src/models
+    --output src/types
 
 # 3. Use them in your project
 # cargo add neutrino-schema chrono uuid serde_json
@@ -122,13 +122,13 @@ Just change the `--database-url`:
 
 ```bash
 # PostgreSQL
-neutrino-schema generate --database-url "postgres://localhost/saas_demo" --output src/models
+neutrino-schema generate --database-url "postgres://localhost/saas_demo" --output src/types
 
 # MySQL
-neutrino-schema generate --database-url "mysql://root:pass@localhost/saas_demo" --output src/models
+neutrino-schema generate --database-url "mysql://root:pass@localhost/saas_demo" --output src/types
 
 # SQLite
-neutrino-schema generate --database-url "sqlite:./saas_demo.db" --output src/models
+neutrino-schema generate --database-url "sqlite:./saas_demo.db" --output src/types
 ```
 
 ## What `neutrino-schema` handled automatically

@@ -21,7 +21,7 @@ fn default_config_empty_databases() {
 fn default_config_has_default_generator() {
     let config = ProjectConfig::default();
     assert_eq!(config.generator.output_dir, PathBuf::from("./src/entities"));
-    assert_eq!(config.generator.module_name, "models");
+    assert_eq!(config.generator.module_name, "types");
 }
 
 #[test]
@@ -66,7 +66,7 @@ fn save_updates_existing_url() {
 url = "postgres://localhost/original"
 
 [generator]
-output = "src/models"
+output = "src/types"
 "#;
 
     let mut config: ProjectConfig = toml::from_str(original).expect("parse original");
@@ -80,7 +80,7 @@ output = "src/models"
         reparsed.databases["default"].url.as_deref(),
         Some("postgres://localhost/updated")
     );
-    assert_eq!(reparsed.generator.output_dir, PathBuf::from("src/models"));
+    assert_eq!(reparsed.generator.output_dir, PathBuf::from("src/types"));
 }
 
 #[test]
@@ -124,7 +124,7 @@ fn partial_generator_defaults() {
         "#;
 
     let config: ProjectConfig = toml::from_str(toml_str).expect("parse");
-    assert_eq!(config.generator.module_name, "models");
+    assert_eq!(config.generator.module_name, "types");
 }
 
 #[test]
@@ -153,7 +153,7 @@ fn multiple_databases() {
             DatabaseConfig {
                 url: Some("mysql://localhost/analytics".into()),
                 provider: Some(DatabaseProvider::MySql),
-                output: Some(PathBuf::from("src/models/analytics")),
+                output: Some(PathBuf::from("src/types/analytics")),
             },
         ),
     ]);

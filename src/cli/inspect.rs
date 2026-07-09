@@ -48,7 +48,7 @@ impl InspectCommand {
             let schema = SchemaIR::from_tables(tables, RelationStrategy::NamingHeuristic);
             let cfg = GeneratorConfig {
                 output_dir: "generated".into(),
-                module_name: "models".into(),
+                module_name: "types".into(),
                 render_mode: mode,
             };
             crate::codegen::generate_files(&schema, &cfg)?;

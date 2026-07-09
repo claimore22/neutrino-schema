@@ -48,7 +48,7 @@ pub struct GenerateCommand {
     #[arg(long)]
     pub non_interactive: bool,
 
-    /// Generate models from all configured databases (not yet implemented).
+    /// Generate types from all configured databases (not yet implemented).
     #[arg(long)]
     pub all: bool,
 }
@@ -89,7 +89,7 @@ impl GenerateCommand {
 
         let config = GeneratorConfig {
             output_dir,
-            module_name: "models".into(),
+            module_name: "types".into(),
             render_mode: if self.debug { RenderMode::Debug } else { RenderMode::Clean },
         };
 

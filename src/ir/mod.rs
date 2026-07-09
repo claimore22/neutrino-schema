@@ -7,8 +7,10 @@ mod field;
 mod table;
 mod relation;
 mod schema;
+mod enum_def;
 
 pub use field::*;
 pub use table::*;
 pub use relation::*;
 pub use schema::*;
+pub use enum_def::*;

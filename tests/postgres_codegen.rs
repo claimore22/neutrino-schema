@@ -61,7 +61,7 @@ fn generates_debug_comments() {
 
 #[test]
 fn pascal_case_table_names() {
-    use neutrino_schema::codegen::to_struct_name;
+    use neutrino_schema::to_struct_name;
 
     assert_eq!(to_struct_name("users"), "Users");
     assert_eq!(to_struct_name("user_profiles"), "UserProfiles");

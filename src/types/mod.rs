@@ -9,8 +9,10 @@ mod pg_type;
 mod sqlite_type;
 mod mysql_type;
 mod db_type;
+mod enum_ref;
 
 pub use pg_type::*;
 pub use sqlite_type::*;
 pub use mysql_type::*;
 pub use db_type::*;
+pub use enum_ref::*;

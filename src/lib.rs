@@ -61,6 +61,7 @@ pub mod types;
 pub mod ir;
 pub mod codegen;
 pub mod config;
+pub mod util;
 
 #[cfg(any(feature = "postgres", feature = "sqlite", feature = "mysql"))]
 pub mod introspect;
@@ -68,9 +69,10 @@ pub mod introspect;
 #[cfg(feature = "cli")]
 pub mod cli;
 
-pub use types::{dbtype_to_rust, mysql_to_db_type, sqlite_to_db_type, to_db_type, DbType, MysqlType, PgType, SqliteType};
-pub use ir::{FieldIR, RelationIR, RelationStrategy, SchemaIR, TableIR};
-pub use codegen::{generate_files, generate_struct, to_struct_name, RenderMode};
+pub use types::{dbtype_to_rust, mysql_to_db_type, sqlite_to_db_type, to_db_type, DbType, EnumRef, MysqlType, PgType, SqliteType};
+pub use ir::{EnumIR, EnumVariantIR, FieldIR, RelationIR, RelationStrategy, SchemaIR, SchemaError, TableIR};
+pub use codegen::{generate_files, generate_struct, RenderMode};
+pub use util::naming::{enum_variant_name, to_struct_name};
 
 #[cfg(any(feature = "postgres", feature = "sqlite", feature = "mysql"))]
 pub use introspect::{Column, DatabaseIntrospector};

@@ -1,3 +1,4 @@
+use crate::types::EnumRef;
 use crate::types::PgType;
 
 /// Database-agnostic type representation.
@@ -28,6 +29,8 @@ pub enum DbType {
     Json,
     /// IP address (v4 or v6).
     Inet,
+    /// Named database enum — references a [`EnumIR`](crate::EnumIR) in the schema.
+    Enum(EnumRef),
     /// Unrecognised type — stored as a raw Rust type path.
     Unknown(String),
 }
@@ -84,6 +87,7 @@ pub fn dbtype_to_rust(ty: &DbType, nullable: bool) -> String {
         DbType::Inet => "std::net::IpAddr".to_string(),
         DbType::Bytes => "Vec<u8>".to_string(),
         DbType::Json => "serde_json::Value".to_string(),
+        DbType::Enum(enm) => enm.rust_name.clone(),
         DbType::Unknown(s) => s.clone(),
     };
 

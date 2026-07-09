@@ -4,6 +4,7 @@
 [![Crates.io](https://img.shields.io/crates/v/neutrino-schema.svg?refresh=1)](https://crates.io/crates/neutrino-schema)
 [![docs.rs](https://docs.rs/neutrino-schema/badge.svg?refresh=1)](https://docs.rs/neutrino-schema)
 [![License](https://img.shields.io/crates/l/neutrino-schema.svg?refresh=1)](https://github.com/claimore22/neutrino-schema)
+[![sqlx](https://img.shields.io/badge/sqlx-0.9-blue)](https://crates.io/crates/sqlx)
 
 Compile relational database schemas into strongly typed Rust types.
 

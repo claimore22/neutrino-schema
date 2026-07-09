@@ -8,7 +8,7 @@ fn generates_user_struct() {
     let fields = vec![
         FieldIR {
             name: "id".to_string(),
-            ty: DbType::Int,
+            ty: DbType::Integer,
             nullable: false,
             raw_type: "integer".to_string(),
         },
@@ -35,7 +35,7 @@ fn generates_user_struct() {
     let output = generate_struct(&schema.tables[0], RenderMode::Clean);
 
     assert!(output.contains("pub struct Users"));
-    assert!(output.contains("pub id: i64,"));
+    assert!(output.contains("pub id: i32,"));
     assert!(output.contains("pub email: String,"));
     assert!(output.contains("pub bio: Option<String>,"));
 }
@@ -44,7 +44,7 @@ fn generates_user_struct() {
 fn generates_debug_comments() {
     let fields = vec![FieldIR {
         name: "id".to_string(),
-        ty: DbType::Int,
+        ty: DbType::Integer,
         nullable: false,
         raw_type: "integer".to_string(),
     }];

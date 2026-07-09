@@ -1,63 +1,92 @@
-use crate::types::EnumRef;
-use crate::types::PgType;
+use crate::types::{EnumRef, PgType, TypeRegistry};
 
 /// Database-agnostic type representation.
 ///
 /// This is the type system used throughout the IR and codegen layers.
 /// Raw database types (PostgreSQL, MySQL, SQLite) are normalised into this
-/// enum by [`to_db_type`](crate::types::to_db_type),
-/// [`mysql_to_db_type`](crate::types::mysql_to_db_type), or
-/// [`sqlite_to_db_type`](crate::types::sqlite_to_db_type).
+/// enum by [`to_db_type`], [`mysql_to_db_type`], or [`sqlite_to_db_type`].
 /// Nullability is NEVER encoded here — always `Option<T>` at codegen time.
 #[derive(Debug, Clone, PartialEq)]
 pub enum DbType {
-    /// Integer (signed 64-bit).
-    Int,
-    /// Floating-point (64-bit).
-    Float,
-    /// UTF-8 string.
+    // Numeric
+    SmallInt,
+    Integer,
+    BigInt,
+    SmallSerial,
+    Serial,
+    BigSerial,
+    Decimal,
+    Float32,
+    Float64,
+
+    // Text
     String,
-    /// Boolean.
-    Bool,
-    /// UUID.
-    Uuid,
-    /// Date/time with time zone.
-    DateTime,
-    /// Binary blob.
-    Bytes,
-    /// Arbitrary JSON value.
+    Text,
+    Boolean,
+
+    // Binary
+    Binary,
+
+    // Date/time
+    Date,
+    Time,
+    Timestamp,
+    TimestampTz,
+
+    // Structured
     Json,
-    /// IP address (v4 or v6).
+    Jsonb,
+    Uuid,
     Inet,
-    /// Named database enum — references a [`EnumIR`](crate::EnumIR) in the schema.
+
+    // Collections
+    Array(Box<DbType>),
+
+    // Schema references
     Enum(EnumRef),
-    /// Unrecognised type — stored as a raw Rust type path.
+
+    /// Unrecognised type — mapped to `String` with a warning.
     Unknown(String),
 }
 
 /// Map a raw [`PgType`] to its database-agnostic [`DbType`].
 ///
 /// This is the boundary between the introspection and IR layers.
-/// Raw SQL type distinctions (e.g. `Varchar` vs `Text`) are collapsed.
+/// Raw SQL type distinctions (e.g. `SmallInt` vs `BigInt`) are preserved
+/// so the downstream pipeline can generate precise Rust types.
 ///
 /// # Examples
 ///
 /// ```
 /// use neutrino_schema::{PgType, to_db_type, DbType};
 ///
-/// assert_eq!(to_db_type(PgType::Int), DbType::Int);
+/// assert_eq!(to_db_type(PgType::SmallInt), DbType::SmallInt);
 /// assert_eq!(to_db_type(PgType::Varchar), DbType::String);
-/// assert_eq!(to_db_type(PgType::TimestampTz), DbType::DateTime);
+/// assert_eq!(to_db_type(PgType::TimestampTz), DbType::TimestampTz);
 /// ```
 pub fn to_db_type(pg: PgType) -> DbType {
     match pg {
-        PgType::Int | PgType::BigInt => DbType::Int,
-        PgType::Varchar | PgType::Text => DbType::String,
+        PgType::SmallInt => DbType::SmallInt,
+        PgType::Integer => DbType::Integer,
+        PgType::BigInt => DbType::BigInt,
+        PgType::SmallSerial => DbType::SmallSerial,
+        PgType::Serial => DbType::Serial,
+        PgType::BigSerial => DbType::BigSerial,
+        PgType::Numeric | PgType::Decimal => DbType::Decimal,
+        PgType::Real => DbType::Float32,
+        PgType::Double => DbType::Float64,
+        PgType::Varchar | PgType::Char => DbType::String,
+        PgType::Text => DbType::Text,
+        PgType::Boolean => DbType::Boolean,
+        PgType::Bytea => DbType::Binary,
+        PgType::Date => DbType::Date,
+        PgType::Time => DbType::Time,
+        PgType::Timestamp => DbType::Timestamp,
+        PgType::TimestampTz => DbType::TimestampTz,
+        PgType::Json => DbType::Json,
+        PgType::Jsonb => DbType::Jsonb,
         PgType::Uuid => DbType::Uuid,
-        PgType::Bool => DbType::Bool,
-        PgType::TimestampTz => DbType::DateTime,
         PgType::Inet => DbType::Inet,
-        PgType::Jsonb => DbType::Json,
         PgType::Unknown(s) => DbType::Unknown(s),
     }
 }
@@ -67,33 +96,24 @@ pub fn to_db_type(pg: PgType) -> DbType {
 /// Returns a Rust type path (e.g. `"i64"`, `"String"`, `"uuid::Uuid"`).
 /// When `nullable` is `true` the type is wrapped in `Option<...>`.
 ///
+/// This is a convenience wrapper around [`TypeRegistry::default().resolve()`].
+/// For full control over imports and type overrides, use [`TypeRegistry`] directly.
+///
 /// # Examples
 ///
 /// ```
 /// use neutrino_schema::{DbType, dbtype_to_rust};
 ///
-/// assert_eq!(dbtype_to_rust(&DbType::Int, false), "i64");
+/// assert_eq!(dbtype_to_rust(&DbType::Integer, false), "i32");
 /// assert_eq!(dbtype_to_rust(&DbType::String, true), "Option<String>");
-/// assert_eq!(dbtype_to_rust(&DbType::DateTime, false), "chrono::DateTime<chrono::Utc>");
+/// assert_eq!(dbtype_to_rust(&DbType::TimestampTz, false), "chrono::DateTime<chrono::Utc>");
 /// ```
 pub fn dbtype_to_rust(ty: &DbType, nullable: bool) -> String {
-    let base = match ty {
-        DbType::String => "String".to_string(),
-        DbType::Int => "i64".to_string(),
-        DbType::Float => "f64".to_string(),
-        DbType::Uuid => "uuid::Uuid".to_string(),
-        DbType::DateTime => "chrono::DateTime<chrono::Utc>".to_string(),
-        DbType::Bool => "bool".to_string(),
-        DbType::Inet => "std::net::IpAddr".to_string(),
-        DbType::Bytes => "Vec<u8>".to_string(),
-        DbType::Json => "serde_json::Value".to_string(),
-        DbType::Enum(enm) => enm.rust_name.clone(),
-        DbType::Unknown(s) => s.clone(),
-    };
-
+    let registry = TypeRegistry::default();
+    let rt = registry.resolve(ty);
     if nullable {
-        format!("Option<{}>", base)
+        format!("Option<{}>", rt.name)
     } else {
-        base
+        rt.name
     }
 }

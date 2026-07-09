@@ -5,24 +5,51 @@
 /// [`to_db_type`](crate::types::to_db_type).
 #[derive(Debug, Clone)]
 pub enum PgType {
-    /// 32-bit integer (`integer`, `int`, `int4`, `smallint`).
-    Int,
-    /// 64-bit integer (`bigint`, `int8`).
+    // Integer types
+    SmallInt,
+    Integer,
     BigInt,
-    /// Variable-length string (`character varying`, `varchar`).
+
+    // Serial types (auto-incrementing)
+    SmallSerial,
+    Serial,
+    BigSerial,
+
+    // Exact numeric
+    Numeric,
+    Decimal,
+
+    // Floating-point
+    Real,
+    Double,
+
+    // String types
     Varchar,
-    /// Unlimited text (`text`).
+    Char,
     Text,
-    /// UUID (`uuid`).
-    Uuid,
-    /// Boolean (`boolean`, `bool`).
-    Bool,
-    /// Timestamp with time zone (`timestamp with time zone`, `timestamptz`).
+
+    // Boolean
+    Boolean,
+
+    // Binary
+    Bytea,
+
+    // Date/time
+    Date,
+    Time,
+    Timestamp,
     TimestampTz,
-    /// IPv4/IPv6 address (`inet`).
-    Inet,
-    /// Binary JSON (`jsonb`).
+
+    // JSON
+    Json,
     Jsonb,
+
+    // Network
+    Inet,
+
+    // UUID
+    Uuid,
+
     /// Unrecognised type — passed through verbatim as a fallback.
     Unknown(String),
 }
@@ -33,15 +60,29 @@ impl PgType {
     /// Returns [`PgType::Unknown`] when the string does not match any known type.
     pub fn map_pg_type(t: &str) -> Self {
         match t {
-            "integer" | "int" | "int4" | "smallint" => Self::Int,
+            "smallint" | "int2" => Self::SmallInt,
+            "integer" | "int" | "int4" => Self::Integer,
             "bigint" | "int8" => Self::BigInt,
+            "smallserial" | "serial2" => Self::SmallSerial,
+            "serial" | "serial4" => Self::Serial,
+            "bigserial" | "serial8" => Self::BigSerial,
+            "numeric" => Self::Numeric,
+            "decimal" => Self::Decimal,
+            "real" | "float4" => Self::Real,
+            "double precision" | "float8" => Self::Double,
             "character varying" | "varchar" => Self::Varchar,
+            "character" | "char" => Self::Char,
             "text" => Self::Text,
-            "uuid" => Self::Uuid,
-            "boolean" | "bool" => Self::Bool,
+            "boolean" | "bool" => Self::Boolean,
+            "bytea" => Self::Bytea,
+            "date" => Self::Date,
+            "time without time zone" | "time" => Self::Time,
+            "timestamp without time zone" | "timestamp" => Self::Timestamp,
             "timestamp with time zone" | "timestamptz" => Self::TimestampTz,
-            "inet" => Self::Inet,
+            "json" => Self::Json,
             "jsonb" => Self::Jsonb,
+            "inet" => Self::Inet,
+            "uuid" => Self::Uuid,
             other => Self::Unknown(other.to_string()),
         }
     }

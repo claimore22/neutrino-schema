@@ -17,6 +17,19 @@ pub struct ProjectConfig {
     /// Global generator settings (can be overridden per database).
     #[cfg_attr(feature = "cli", serde(default))]
     pub generator: GeneratorConfig,
+
+    /// User-defined type overrides.
+    ///
+    /// Keyed by database type name (e.g. `"citext"`) or DbType variant name
+    /// (e.g. `"Decimal"`).  Values are Rust type paths (e.g. `"bigdecimal::BigDecimal"`).
+    ///
+    /// ```toml
+    /// [types]
+    /// money = "rust_decimal::Decimal"
+    /// citext = "String"
+    /// ```
+    #[cfg_attr(feature = "cli", serde(default))]
+    pub types: HashMap<String, String>,
 }
 
 impl Default for ProjectConfig {
@@ -25,6 +38,7 @@ impl Default for ProjectConfig {
             version: 1,
             databases: HashMap::new(),
             generator: GeneratorConfig::default(),
+            types: HashMap::new(),
         }
     }
 }

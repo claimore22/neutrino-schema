@@ -7,10 +7,10 @@ use crate::types::DbType;
 #[derive(Debug, Clone, PartialEq)]
 pub enum SqliteType {
     /// 64-bit signed integer (`INTEGER`).
-    Int,
-    /// 64-bit floating point (`REAL`).
+    Integer,
+    /// 64-bit floating point (`REAL`, `FLOAT`, `DOUBLE`).
     Real,
-    /// UTF-8 string (`TEXT`).
+    /// UTF-8 string (`TEXT`, `VARCHAR`, `CHAR`).
     Text,
     /// Binary blob (`BLOB`).
     Blob,
@@ -29,17 +29,18 @@ impl SqliteType {
         let base = t.trim().split('(').next().unwrap_or(t).trim().to_lowercase();
         match base.as_str() {
             "int" | "integer" | "tinyint" | "smallint" | "mediumint" | "bigint"
-            | "int2" | "int8" | "boolean" | "bool" => Self::Int,
-            "real" | "double" | "double precision" | "float" | "numeric"
-            | "decimal" | "number" | "dec" => Self::Real,
+            | "int2" | "int8" | "boolean" | "bool" => Self::Integer,
+            "real" | "double" | "double precision" | "float" | "number" => Self::Real,
+            // DECIMAL/NUMERIC in SQLite are not enforced — map to Unknown
+            "numeric" | "decimal" | "dec" => Self::Unknown(base),
             "char" | "varchar" | "text" | "clob" | "character" | "varying character"
             | "native character" | "nchar" | "nvarchar" | "string" => Self::Text,
             "blob" | "binary" | "varbinary" => Self::Blob,
             "null" => Self::Null,
             other => {
-                // SQLite date/time affinities
+                // SQLite date/time affinities — stored as TEXT, keep as Unknown
                 if matches!(other, "date" | "datetime" | "timestamp" | "time") {
-                    Self::Text
+                    Self::Unknown(other.to_string())
                 } else {
                     Self::Unknown(t.trim().to_string())
                 }
@@ -55,16 +56,16 @@ impl SqliteType {
 /// ```
 /// use neutrino_schema::{SqliteType, sqlite_to_db_type, DbType};
 ///
-/// assert_eq!(sqlite_to_db_type(SqliteType::Int), DbType::Int);
-/// assert_eq!(sqlite_to_db_type(SqliteType::Real), DbType::Float);
+/// assert_eq!(sqlite_to_db_type(SqliteType::Integer), DbType::Integer);
+/// assert_eq!(sqlite_to_db_type(SqliteType::Real), DbType::Float64);
 /// assert_eq!(sqlite_to_db_type(SqliteType::Text), DbType::String);
 /// ```
 pub fn sqlite_to_db_type(ty: SqliteType) -> DbType {
     match ty {
-        SqliteType::Int => DbType::Int,
-        SqliteType::Real => DbType::Float,
+        SqliteType::Integer => DbType::Integer,
+        SqliteType::Real => DbType::Float64,
         SqliteType::Text => DbType::String,
-        SqliteType::Blob => DbType::Bytes,
+        SqliteType::Blob => DbType::Binary,
         SqliteType::Null => DbType::Unknown("()".into()),
         SqliteType::Unknown(s) => DbType::Unknown(s),
     }

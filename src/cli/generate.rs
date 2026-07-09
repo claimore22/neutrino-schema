@@ -85,6 +85,12 @@ impl GenerateCommand {
         )
         .await?;
 
+        // Build type registry with config overrides
+        let registry = match crate::config::ProjectConfig::load_from_cwd()? {
+            Some(cfg) => crate::types::TypeRegistry::with_overrides(cfg.types),
+            None => crate::types::TypeRegistry::default(),
+        };
+
         let output_dir = self
             .output
             .clone()
@@ -96,7 +102,7 @@ impl GenerateCommand {
             render_mode: if self.debug { RenderMode::Debug } else { RenderMode::Clean },
         };
 
-        crate::codegen::generate_files(&schema, &config)?;
+        crate::codegen::generate_files_with_registry(&schema, &config, &registry)?;
 
         eprintln!(
             "✓ Generated {} tables to {:?}",

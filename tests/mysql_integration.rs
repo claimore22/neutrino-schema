@@ -118,10 +118,10 @@ async fn mysql_column_to_field() {
     };
     let columns = introspector.list_columns("users").await.expect("list columns");
     let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
-    assert_eq!(fields.iter().find(|f| f.name == "id").unwrap().ty, DbType::Int);
+    assert_eq!(fields.iter().find(|f| f.name == "id").unwrap().ty, DbType::Integer);
     assert_eq!(fields.iter().find(|f| f.name == "email").unwrap().ty, DbType::String);
-    assert_eq!(fields.iter().find(|f| f.name == "salary").unwrap().ty, DbType::Float);
-    assert_eq!(fields.iter().find(|f| f.name == "avatar").unwrap().ty, DbType::Bytes);
+    assert_eq!(fields.iter().find(|f| f.name == "salary").unwrap().ty, DbType::Decimal);
+    assert_eq!(fields.iter().find(|f| f.name == "avatar").unwrap().ty, DbType::Binary);
     drop(introspector);
     teardown("ns_column_to_field").await;
 }

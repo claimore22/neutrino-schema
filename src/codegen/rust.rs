@@ -1,6 +1,8 @@
+use std::collections::BTreeSet;
+
 use crate::config::GeneratorConfig;
 use crate::ir::{EnumIR, FieldIR, SchemaIR, TableIR};
-use crate::types::{DbType, EnumRef};
+use crate::types::{DbType, EnumRef, TypeRegistry};
 use crate::util::naming::to_struct_name;
 
 /// Controls whether generated structs include debug annotations.
@@ -130,6 +132,22 @@ pub fn generate_enum_defs(enums: &[EnumIR]) -> String {
     out
 }
 
+/// Collect all unique import lines needed for the types used across the schema.
+///
+/// Returns a sorted, deduplicated list of `use` statements (without trailing newlines).
+pub fn generate_imports(schema: &SchemaIR, registry: &TypeRegistry) -> Vec<String> {
+    let mut imports = BTreeSet::new();
+    for table in &schema.tables {
+        for field in &table.fields {
+            let rt = registry.resolve(&field.ty);
+            for import in &rt.imports {
+                imports.insert(import.clone());
+            }
+        }
+    }
+    imports.into_iter().collect()
+}
+
 /// Write generated Rust files to disk.
 ///
 /// Creates one `.rs` file per table in `config.output_dir`, named after the
@@ -144,7 +162,19 @@ pub fn generate_enum_defs(enums: &[EnumIR]) -> String {
 /// Returns `Err` if the output directory cannot be created, or if any file
 /// cannot be written.
 pub fn generate_files(schema: &SchemaIR, config: &GeneratorConfig) -> std::io::Result<()> {
+    generate_files_with_registry(schema, config, &TypeRegistry::default())
+}
+
+/// Like [`generate_files`] but accepts a custom [`TypeRegistry`] for type
+/// overrides.
+pub fn generate_files_with_registry(
+    schema: &SchemaIR,
+    config: &GeneratorConfig,
+    registry: &TypeRegistry,
+) -> std::io::Result<()> {
     std::fs::create_dir_all(&config.output_dir)?;
+
+    let imports_block = build_imports_block(schema, registry);
 
     let mut mod_decls: Vec<String> = Vec::new();
 
@@ -158,6 +188,11 @@ pub fn generate_files(schema: &SchemaIR, config: &GeneratorConfig) -> std::io::R
     for table in &schema.tables {
         let file_name = format!("{}.rs", table.name.replace('-', "_"));
         let content = generate_struct_file(table, config.render_mode);
+        let content = if imports_block.is_empty() {
+            content
+        } else {
+            format!("{imports_block}\n{content}")
+        };
         std::fs::write(config.output_dir.join(&file_name), content)?;
         mod_decls.push(table.name.replace('-', "_"));
     }
@@ -169,6 +204,15 @@ pub fn generate_files(schema: &SchemaIR, config: &GeneratorConfig) -> std::io::R
     std::fs::write(config.output_dir.join("mod.rs"), mod_rs)?;
 
     Ok(())
+}
+
+fn build_imports_block(schema: &SchemaIR, registry: &TypeRegistry) -> String {
+    let imports = generate_imports(schema, registry);
+    if imports.is_empty() {
+        String::new()
+    } else {
+        imports.join("\n") + "\n\n"
+    }
 }
 
 /// Like [`generate_struct`] but emits `super::enums::Name` for enum-typed fields.

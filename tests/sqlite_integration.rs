@@ -99,7 +99,7 @@ async fn sqlite_column_to_field() {
     let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
 
     let id = fields.iter().find(|f| f.name == "id").unwrap();
-    assert_eq!(id.ty, neutrino_schema::types::DbType::Int);
+    assert_eq!(id.ty, neutrino_schema::types::DbType::Integer);
     // INTEGER PRIMARY KEY: SQLite PRAGMA doesn't report implicit NOT NULL
 
     let email = fields.iter().find(|f| f.name == "email").unwrap();
@@ -111,10 +111,10 @@ async fn sqlite_column_to_field() {
     assert!(full_name.nullable);
 
     let salary = fields.iter().find(|f| f.name == "salary").unwrap();
-    assert_eq!(salary.ty, neutrino_schema::types::DbType::Float);
+    assert_eq!(salary.ty, neutrino_schema::types::DbType::Float64);
 
     let avatar = fields.iter().find(|f| f.name == "avatar").unwrap();
-    assert_eq!(avatar.ty, neutrino_schema::types::DbType::Bytes);
+    assert_eq!(avatar.ty, neutrino_schema::types::DbType::Binary);
 }
 
 #[tokio::test]

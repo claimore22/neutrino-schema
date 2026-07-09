@@ -1,5 +1,6 @@
 use crate::config::GeneratorConfig;
-use crate::ir::{FieldIR, SchemaIR, TableIR};
+use crate::ir::{EnumIR, FieldIR, SchemaIR, TableIR};
+use crate::types::{DbType, EnumRef};
 use crate::util::naming::to_struct_name;
 
 /// Controls whether generated structs include debug annotations.
@@ -15,8 +16,29 @@ pub enum RenderMode {
     Debug,
 }
 
-fn render_field(f: &FieldIR, mode: RenderMode) -> String {
+fn render_field_default(f: &FieldIR, mode: RenderMode) -> String {
     let ty = crate::types::dbtype_to_rust(&f.ty, f.nullable);
+    match mode {
+        RenderMode::Clean => format!("    pub {}: {},\n", f.name, ty),
+        RenderMode::Debug => {
+            let null_label = if f.nullable { "NULL" } else { "NOT NULL" };
+            format!("    pub {}: {}, // {}, {}\n", f.name, ty, f.raw_type, null_label)
+        }
+    }
+}
+
+fn render_field_with_enum_prefix(f: &FieldIR, mode: RenderMode) -> String {
+    let ty = match &f.ty {
+        DbType::Enum(EnumRef { rust_name }) => {
+            let base = format!("super::enums::{}", rust_name);
+            if f.nullable {
+                format!("Option<{}>", base)
+            } else {
+                base
+            }
+        }
+        _ => crate::types::dbtype_to_rust(&f.ty, f.nullable),
+    };
     match mode {
         RenderMode::Clean => format!("    pub {}: {},\n", f.name, ty),
         RenderMode::Debug => {
@@ -31,6 +53,10 @@ fn render_field(f: &FieldIR, mode: RenderMode) -> String {
 /// The struct is `#[derive(Debug, Clone)]` and all fields are `pub`.
 /// When `mode` is [`RenderMode::Debug`], each field gets a comment with
 /// its raw SQL type and nullability.
+///
+/// Fields with [`DbType::Enum`] use the bare enum name (no module prefix).
+/// For multi-file code generation (including a separate `enums.rs`), use
+/// [`generate_files`] instead, which emits `super::enums::` prefixed types.
 ///
 /// # Example
 ///
@@ -59,17 +85,58 @@ pub fn generate_struct(table: &TableIR, mode: RenderMode) -> String {
     out.push_str(&format!("pub struct {struct_name} {{\n"));
 
     for f in &table.fields {
-        out.push_str(&render_field(f, mode));
+        out.push_str(&render_field_default(f, mode));
     }
 
     out.push_str("}\n");
     out
 }
 
-/// Write generated Rust structs to disk.
+/// Generate Rust enum definitions from introspection results.
+///
+/// Each enum is rendered as a `pub enum` with `#[derive(Debug, Clone, Copy,
+/// PartialEq, Eq, Hash, PartialOrd, Ord)]`.
+///
+/// Returns an empty string when `enums` is empty.
+///
+/// # Example
+///
+/// ```rust
+/// use neutrino_schema::*;
+///
+/// let enums = vec![
+///     EnumIR::new("mood", &["happy".into(), "sad".into()], None),
+/// ];
+/// let out = generate_enum_defs(&enums);
+/// assert!(out.contains("pub enum Mood"));
+/// assert!(out.contains("Happy,"));
+/// assert!(out.contains("Sad,"));
+/// ```
+pub fn generate_enum_defs(enums: &[EnumIR]) -> String {
+    if enums.is_empty() {
+        return String::new();
+    }
+    let mut out = String::new();
+    for enm in enums {
+        out.push_str(
+            "#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]\n",
+        );
+        out.push_str(&format!("pub enum {} {{\n", enm.rust_name));
+        for variant in &enm.variants {
+            out.push_str(&format!("    {},\n", variant.rust_name));
+        }
+        out.push_str("}\n\n");
+    }
+    out
+}
+
+/// Write generated Rust files to disk.
 ///
 /// Creates one `.rs` file per table in `config.output_dir`, named after the
 /// table (e.g. `users.rs`), plus a `mod.rs` that declares each sub-module.
+/// When the schema contains enums, also writes an `enums.rs` file and adds
+/// `pub mod enums;` to `mod.rs`.
+///
 /// Creates the output directory if it does not exist.
 ///
 /// # Errors
@@ -79,12 +146,18 @@ pub fn generate_struct(table: &TableIR, mode: RenderMode) -> String {
 pub fn generate_files(schema: &SchemaIR, config: &GeneratorConfig) -> std::io::Result<()> {
     std::fs::create_dir_all(&config.output_dir)?;
 
-    let mut mod_decls = Vec::new();
+    let mut mod_decls: Vec<String> = Vec::new();
+
+    // Write enums.rs if there are any enums
+    if !schema.enums.is_empty() {
+        let content = generate_enum_defs(&schema.enums);
+        std::fs::write(config.output_dir.join("enums.rs"), content)?;
+        mod_decls.push("enums".into());
+    }
 
     for table in &schema.tables {
         let file_name = format!("{}.rs", table.name.replace('-', "_"));
-        let content = generate_struct(table, config.render_mode);
-
+        let content = generate_struct_file(table, config.render_mode);
         std::fs::write(config.output_dir.join(&file_name), content)?;
         mod_decls.push(table.name.replace('-', "_"));
     }
@@ -98,3 +171,18 @@ pub fn generate_files(schema: &SchemaIR, config: &GeneratorConfig) -> std::io::R
     Ok(())
 }
 
+/// Like [`generate_struct`] but emits `super::enums::Name` for enum-typed fields.
+fn generate_struct_file(table: &TableIR, mode: RenderMode) -> String {
+    let mut out = String::new();
+    let struct_name = to_struct_name(&table.name);
+
+    out.push_str("#[derive(Debug, Clone)]\n");
+    out.push_str(&format!("pub struct {struct_name} {{\n"));
+
+    for f in &table.fields {
+        out.push_str(&render_field_with_enum_prefix(f, mode));
+    }
+
+    out.push_str("}\n");
+    out
+}

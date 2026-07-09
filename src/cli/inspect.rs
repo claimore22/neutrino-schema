@@ -3,7 +3,7 @@ use clap::Args;
 use crate::cli::url_to_introspector;
 use crate::codegen::{generate_struct, RenderMode};
 use crate::config::GeneratorConfig;
-use crate::ir::{RelationStrategy, SchemaIR};
+use crate::ir::RelationStrategy;
 
 /// Inspect a database and print generated structs.
 ///
@@ -44,8 +44,12 @@ impl InspectCommand {
 
         if self.all {
             let table_names = introspector.list_tables().await?;
-            let tables = crate::cli::introspect_tables(introspector.as_ref(), &table_names).await?;
-            let schema = SchemaIR::from_tables(tables, RelationStrategy::NamingHeuristic);
+            let schema = crate::cli::introspect_schema(
+                introspector.as_ref(),
+                &table_names,
+                RelationStrategy::NamingHeuristic,
+            )
+            .await?;
             let cfg = GeneratorConfig {
                 output_dir: "generated".into(),
                 module_name: "types".into(),

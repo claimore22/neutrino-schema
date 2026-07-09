@@ -71,7 +71,7 @@ pub mod cli;
 
 pub use types::{dbtype_to_rust, mysql_to_db_type, sqlite_to_db_type, to_db_type, DbType, EnumRef, MysqlType, PgType, SqliteType};
 pub use ir::{EnumIR, EnumVariantIR, FieldIR, RelationIR, RelationStrategy, SchemaIR, SchemaError, TableIR};
-pub use codegen::{generate_files, generate_struct, RenderMode};
+pub use codegen::{generate_enum_defs, generate_files, generate_struct, RenderMode};
 pub use util::naming::{enum_variant_name, to_struct_name};
 
 #[cfg(any(feature = "postgres", feature = "sqlite", feature = "mysql"))]

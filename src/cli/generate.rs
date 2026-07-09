@@ -78,9 +78,12 @@ impl GenerateCommand {
             normalize_table_names(&self.table)
         };
 
-        let tables = crate::cli::introspect_tables(introspector.as_ref(), &table_names).await?;
-
-        let schema = crate::ir::SchemaIR::from_tables(tables, RelationStrategy::NamingHeuristic);
+        let schema = crate::cli::introspect_schema(
+            introspector.as_ref(),
+            &table_names,
+            RelationStrategy::NamingHeuristic,
+        )
+        .await?;
 
         let output_dir = self
             .output

@@ -132,12 +132,12 @@ async fn users_roundtrip() {{
     assert_eq!(rows.len(), 2, "users row count");
 
     let alice = rows.iter().find(|u| u.email == "alice@example.com").unwrap();
-    assert_eq!(alice.id, Some(1));
+    assert_eq!(alice.id, 1);
     assert_eq!(alice.age, 30);
     assert_eq!(alice.is_active, 1);
 
     let bob = rows.iter().find(|u| u.email == "bob@example.com").unwrap();
-    assert_eq!(bob.id, Some(2));
+    assert_eq!(bob.id, 2);
     assert_eq!(bob.age, 25);
 }}
 

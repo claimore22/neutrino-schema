@@ -66,7 +66,7 @@ impl super::DatabaseIntrospector for SqliteIntrospector {
                     table_name: table.to_string(),
                     column_name: r.get("name"),
                     data_type: raw.unwrap_or_else(|| "TEXT".to_string()),
-                    nullable: r.get::<i32, _>("notnull") == 0,
+                    nullable: r.get::<i32, _>("notnull") == 0 && r.get::<i32, _>("pk") == 0,
                 }
             })
             .collect())
@@ -129,11 +129,17 @@ impl super::DatabaseIntrospector for SqliteIntrospector {
             });
         }
 
-        // Unique constraints — from pragma_index_list (origin = 'u')
-        let idx_rows = sqlx::query("SELECT * FROM pragma_index_list(?1) WHERE origin = 'u'")
-            .bind(table)
-            .fetch_all(&self.pool)
-            .await?;
+        // Unique constraints — from pragma_index_list WHERE "unique" = 1 AND origin != 'pk'
+        // This captures both inline UNIQUE constraints (origin='u') and unique indexes
+        // created via CREATE UNIQUE INDEX (origin='c'). When index names collide
+        // across tables (e.g. `idx_public_id` in every migration file), only the
+        // first alphabetically succeeds; later duplicates are skipped by IF NOT EXISTS.
+        let idx_rows = sqlx::query(
+            r#"SELECT * FROM pragma_index_list(?1) WHERE "unique" = 1 AND origin != 'pk'"#,
+        )
+        .bind(table)
+        .fetch_all(&self.pool)
+        .await?;
 
         for r in idx_rows {
             let idx_name: String = r.get("name");

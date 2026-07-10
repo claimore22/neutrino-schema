@@ -127,6 +127,29 @@ async fn mysql_column_to_field() {
 }
 
 #[tokio::test]
+async fn mysql_list_constraints() {
+    let Some(introspector) = setup("ns_list_constraints").await else {
+        eprintln!("MySQL unreachable — skipping mysql_list_constraints");
+        return;
+    };
+
+    let user_constraints = introspector.list_constraints("users").await.expect("list constraints");
+    assert!(user_constraints.iter().any(|c| matches!(&c.kind, neutrino_schema::ir::ConstraintKind::PrimaryKey { columns } if columns == &vec!["id".to_string()])),
+        "expected PK on id");
+    assert!(user_constraints.iter().any(|c| matches!(&c.kind, neutrino_schema::ir::ConstraintKind::Unique { columns } if columns == &vec!["email".to_string()])),
+        "expected UNIQUE on email");
+
+    let post_constraints = introspector.list_constraints("posts").await.expect("list constraints");
+    assert!(post_constraints.iter().any(|c| matches!(&c.kind, neutrino_schema::ir::ConstraintKind::PrimaryKey { columns } if columns == &vec!["id".to_string()])),
+        "expected PK on id");
+    assert!(post_constraints.iter().any(|c| matches!(&c.kind, neutrino_schema::ir::ConstraintKind::ForeignKey { columns, referenced_table, .. } if columns == &vec!["user_id".to_string()] && referenced_table == "users")),
+        "expected FK user_id → users(id)");
+
+    drop(introspector);
+    teardown("ns_list_constraints").await;
+}
+
+#[tokio::test]
 async fn mysql_full_pipeline() {
     let Some(introspector) = setup("ns_full_pipeline").await else {
         eprintln!("MySQL unreachable — skipping mysql_full_pipeline");
@@ -137,7 +160,8 @@ async fn mysql_full_pipeline() {
     for name in &table_names {
         let columns = introspector.list_columns(name).await.expect("list columns");
         let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
-        tables.push(neutrino_schema::ir::TableIR { name: name.clone(), fields, constraints: vec![] });
+        let constraints = introspector.list_constraints(name).await.expect("list constraints");
+        tables.push(neutrino_schema::ir::TableIR { name: name.clone(), fields, constraints });
     }
     let schema = SchemaIR::from_tables(tables, RelationStrategy::NamingHeuristic);
     assert!(schema.relations.iter().any(|r| r.from_table == "posts"));

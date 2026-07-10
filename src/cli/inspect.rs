@@ -58,19 +58,24 @@ impl InspectCommand {
             crate::codegen::generate_files(&schema, &cfg)?;
 
             eprintln!("Generated {} tables to {:?}", schema.tables.len(), cfg.output_dir);
-            eprintln!("Potential relations: {}", schema.relations.len());
-            eprintln!("Strategy: Naming heuristic");
-            eprintln!("Verification: None (database foreign keys were not consulted)");
+            eprintln!("Relations: {}", schema.relations.len());
             for r in &schema.relations {
-                eprintln!("  {}.{} -> {}.{}", r.from_table, r.from_field, r.to_table, r.to_field);
+                let source = match &r.source {
+                    crate::ir::RelationSource::ForeignKey(name) => format!(" (FK: {name})"),
+                    crate::ir::RelationSource::NamingHeuristic => " (heuristic)".to_string(),
+                };
+                eprintln!("  {}.{} -> {}.{}{source}", r.from_table, r.from_field, r.to_table, r.to_field);
             }
+            let constraint_count: usize = schema.tables.iter().map(|t| t.constraints.len()).sum();
+            eprintln!("Constraints: {}", constraint_count);
         } else if let Some(table_name) = &self.table {
             let columns = introspector.list_columns(table_name).await?;
             let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
+            let constraints = introspector.list_constraints(table_name).await?;
             let table_ir = crate::ir::TableIR {
                 name: table_name.clone(),
                 fields,
-                constraints: vec![],
+                constraints,
             };
             print!("{}", generate_struct(&table_ir, mode));
         } else {

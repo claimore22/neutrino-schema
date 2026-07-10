@@ -118,6 +118,25 @@ async fn sqlite_column_to_field() {
 }
 
 #[tokio::test]
+async fn sqlite_list_constraints() {
+    let introspector = setup_introspector().await;
+
+    // users: PK on id, UNIQUE on email
+    let user_constraints = introspector.list_constraints("users").await.expect("list constraints");
+    assert!(user_constraints.iter().any(|c| matches!(&c.kind, neutrino_schema::ir::ConstraintKind::PrimaryKey { columns } if columns == &vec!["id".to_string()])),
+        "expected PK on id");
+    assert!(user_constraints.iter().any(|c| matches!(&c.kind, neutrino_schema::ir::ConstraintKind::Unique { columns } if columns == &vec!["email".to_string()])),
+        "expected UNIQUE on email");
+
+    // posts: PK on id, FK user_id → users(id)
+    let post_constraints = introspector.list_constraints("posts").await.expect("list constraints");
+    assert!(post_constraints.iter().any(|c| matches!(&c.kind, neutrino_schema::ir::ConstraintKind::PrimaryKey { columns } if columns == &vec!["id".to_string()])),
+        "expected PK on id");
+    assert!(post_constraints.iter().any(|c| matches!(&c.kind, neutrino_schema::ir::ConstraintKind::ForeignKey { columns, referenced_table, .. } if columns == &vec!["user_id".to_string()] && referenced_table == "users")),
+        "expected FK user_id → users(id)");
+}
+
+#[tokio::test]
 async fn sqlite_full_pipeline() {
     let introspector = setup_introspector().await;
     let table_names = introspector.list_tables().await.expect("list tables");
@@ -126,19 +145,29 @@ async fn sqlite_full_pipeline() {
     for name in &table_names {
         let columns = introspector.list_columns(name).await.expect("list columns");
         let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
+        let constraints = introspector.list_constraints(name).await.expect("list constraints");
         tables.push(neutrino_schema::ir::TableIR {
             name: name.clone(),
             fields,
-            constraints: vec![],
+            constraints,
         });
     }
 
     let schema = SchemaIR::from_tables(tables, RelationStrategy::NamingHeuristic);
 
-    // users → posts relation detected (user_id → id)
-    let rel = schema.relations.iter().find(|r| r.from_table == "posts");
-    assert!(rel.is_some(), "posts.user_id → users.id relation should be inferred");
-    if let Some(r) = rel {
+    // FK-derived relation: posts.user_id → users.id
+    let fk_rel = schema.relations.iter().find(|r| matches!(r.source, neutrino_schema::ir::RelationSource::ForeignKey(_)));
+    assert!(fk_rel.is_some(), "FK-derived relation should exist");
+    if let Some(r) = fk_rel {
+        assert_eq!(r.from_field, "user_id");
+        assert_eq!(r.to_table, "users");
+        assert_eq!(r.to_field, "id");
+    }
+
+    // Heuristic relation: posts.user_id → users.id
+    let heuristic_rel = schema.relations.iter().find(|r| matches!(r.source, neutrino_schema::ir::RelationSource::NamingHeuristic));
+    assert!(heuristic_rel.is_some(), "heuristic relation should exist");
+    if let Some(r) = heuristic_rel {
         assert_eq!(r.from_field, "user_id");
         assert_eq!(r.to_table, "users");
         assert_eq!(r.to_field, "id");

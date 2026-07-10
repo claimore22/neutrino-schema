@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use sqlx::{PgPool, Row};
 
-use crate::ir::{EnumIR, EnumVariantIR, FieldIR};
+use crate::ir::{ConstraintIR, ConstraintKind, EnumIR, EnumVariantIR, FieldIR, MatchType, ReferentialAction};
 use crate::introspect::Column;
 use crate::introspect::DatabaseIntrospector;
 use crate::types::{self, PgType};
@@ -170,5 +172,137 @@ impl DatabaseIntrospector for PostgresIntrospector {
             .collect();
 
         Ok(enums)
+    }
+
+    async fn list_constraints(&self, table: &str) -> anyhow::Result<Vec<ConstraintIR>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                tc.constraint_name,
+                tc.constraint_type,
+                ccu.column_name,
+                ccu.ordinal_position,
+                ccu.table_schema      AS ref_table_schema,
+                ccu.table_name        AS ref_table_name,
+                ccu.column_name       AS ref_column_name,
+                rc.update_rule,
+                rc.delete_rule,
+                cc.check_clause
+            FROM information_schema.table_constraints tc
+            LEFT JOIN information_schema.key_column_usage ccu
+                ON tc.constraint_catalog = ccu.constraint_catalog
+                AND tc.constraint_schema = ccu.constraint_schema
+                AND tc.constraint_name = ccu.constraint_name
+            LEFT JOIN information_schema.referential_constraints rc
+                ON tc.constraint_catalog = rc.constraint_catalog
+                AND tc.constraint_schema = rc.constraint_schema
+                AND tc.constraint_name = rc.constraint_name
+            LEFT JOIN information_schema.check_constraints cc
+                ON tc.constraint_catalog = cc.constraint_catalog
+                AND tc.constraint_schema = cc.constraint_schema
+                AND tc.constraint_name = cc.constraint_name
+            WHERE tc.table_schema = current_schema()
+              AND tc.table_name = $1
+            ORDER BY tc.constraint_name, ccu.ordinal_position
+            "#,
+        )
+        .bind(table)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut grouped: HashMap<String, ConstraintBuilder> = HashMap::new();
+        for r in rows {
+            let name: String = r.get("constraint_name");
+            let entry = grouped.entry(name.clone()).or_insert_with(|| {
+                let raw: String = r.get("constraint_type");
+                ConstraintBuilder {
+                    name,
+                    constraint_type: raw,
+                    columns: Vec::new(),
+                    ref_table: None,
+                    ref_columns: Vec::new(),
+                    update_rule: None,
+                    delete_rule: None,
+                    check_clause: None,
+                    match_type: None,
+                }
+            });
+            if let Ok(col) = r.try_get::<Option<String>, _>("column_name") {
+                if let Some(col) = col {
+                    entry.columns.push(col);
+                }
+            }
+            if entry.ref_table.is_none() {
+                if let Ok(Some(ref_table)) = r.try_get::<Option<String>, _>("ref_table_name") {
+                    entry.ref_table = Some(ref_table);
+                }
+            }
+            if let Ok(Some(col)) = r.try_get::<Option<String>, _>("ref_column_name") {
+                if !entry.ref_columns.contains(&col) {
+                    entry.ref_columns.push(col);
+                }
+            }
+            if entry.update_rule.is_none() {
+                if let Ok(Some(rule)) = r.try_get::<Option<String>, _>("update_rule") {
+                    entry.update_rule = Some(rule);
+                }
+            }
+            if entry.delete_rule.is_none() {
+                if let Ok(Some(rule)) = r.try_get::<Option<String>, _>("delete_rule") {
+                    entry.delete_rule = Some(rule);
+                }
+            }
+            if entry.check_clause.is_none() {
+                if let Ok(Some(clause)) = r.try_get::<Option<String>, _>("check_clause") {
+                    entry.check_clause = Some(clause);
+                }
+            }
+        }
+
+        Ok(grouped.into_values().filter_map(|b| b.build()).collect())
+    }
+}
+
+struct ConstraintBuilder {
+    name: String,
+    constraint_type: String,
+    columns: Vec<String>,
+    ref_table: Option<String>,
+    ref_columns: Vec<String>,
+    update_rule: Option<String>,
+    delete_rule: Option<String>,
+    check_clause: Option<String>,
+    match_type: Option<MatchType>,
+}
+
+impl ConstraintBuilder {
+    fn build(self) -> Option<ConstraintIR> {
+        let kind = match self.constraint_type.as_str() {
+            "PRIMARY KEY" => ConstraintKind::PrimaryKey { columns: self.columns },
+            "UNIQUE" => ConstraintKind::Unique { columns: self.columns },
+            "FOREIGN KEY" => ConstraintKind::ForeignKey {
+                columns: self.columns,
+                referenced_table: self.ref_table.unwrap_or_default(),
+                referenced_columns: self.ref_columns,
+                on_delete: parse_referential_action(self.delete_rule.as_deref()),
+                on_update: parse_referential_action(self.update_rule.as_deref()),
+                match_type: self.match_type,
+            },
+            "CHECK" => ConstraintKind::Check {
+                expression: self.check_clause.unwrap_or_default(),
+            },
+            _ => return None,
+        };
+        Some(ConstraintIR { name: self.name, kind })
+    }
+}
+
+pub(crate) fn parse_referential_action(s: Option<&str>) -> ReferentialAction {
+    match s {
+        Some("CASCADE") => ReferentialAction::Cascade,
+        Some("SET NULL") => ReferentialAction::SetNull,
+        Some("SET DEFAULT") => ReferentialAction::SetDefault,
+        Some("RESTRICT") => ReferentialAction::Restrict,
+        _ => ReferentialAction::NoAction,
     }
 }

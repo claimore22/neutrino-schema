@@ -79,7 +79,11 @@ CREATE TABLE all_types (
 
     json_value          JSON,
     date_value          DATE,
-    datetime_value      DATETIME
+    datetime_value      DATETIME,
+
+    nullable_bool       BOOLEAN,
+    nullable_text       TEXT,
+    nullable_blob       BLOB
 );
 
 -- Indexes (SQLite does not support DESC or partial)

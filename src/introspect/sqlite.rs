@@ -4,7 +4,7 @@ use sqlx::{Row, SqlitePool};
 
 use crate::ir::{ConstraintIR, ConstraintKind, FieldIR, ReferentialAction};
 use crate::introspect::Column;
-use crate::types::{self, SqliteType};
+use crate::types;
 
 /// SQLite implementation of [`DatabaseIntrospector`](crate::introspect::DatabaseIntrospector).
 ///
@@ -25,8 +25,7 @@ impl SqliteIntrospector {
 #[async_trait::async_trait]
 impl super::DatabaseIntrospector for SqliteIntrospector {
     fn column_to_field(&self, col: &Column) -> FieldIR {
-        let sqlite_ty = SqliteType::map_sqlite_type(&col.data_type);
-        let db_ty = types::sqlite_to_db_type(sqlite_ty);
+        let db_ty = types::sqlite_declared_to_db_type(&col.data_type);
         FieldIR {
             name: col.column_name.clone(),
             ty: db_ty,

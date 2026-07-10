@@ -81,7 +81,7 @@ mod sqlite {
 
         assert_eq!(
             fields.iter().find(|f| f.name == "small_int_value").unwrap().ty,
-            DbType::Integer
+            DbType::SmallInt
         );
         assert_eq!(
             fields.iter().find(|f| f.name == "integer_value").unwrap().ty,
@@ -89,7 +89,7 @@ mod sqlite {
         );
         assert_eq!(
             fields.iter().find(|f| f.name == "bigint_value").unwrap().ty,
-            DbType::Integer
+            DbType::BigInt
         );
         assert_eq!(
             fields.iter().find(|f| f.name == "real_value").unwrap().ty,
@@ -120,6 +120,19 @@ mod sqlite {
             fields.iter().find(|f| f.name == "datetime_value").unwrap().ty,
             DbType::Unknown(_)
         ));
+
+        // Nullable columns
+        let nullable_bool = fields.iter().find(|f| f.name == "nullable_bool").unwrap();
+        assert_eq!(nullable_bool.ty, DbType::Boolean);
+        assert!(nullable_bool.nullable);
+
+        let nullable_text = fields.iter().find(|f| f.name == "nullable_text").unwrap();
+        assert_eq!(nullable_text.ty, DbType::String);
+        assert!(nullable_text.nullable);
+
+        let nullable_blob = fields.iter().find(|f| f.name == "nullable_blob").unwrap();
+        assert_eq!(nullable_blob.ty, DbType::Binary);
+        assert!(nullable_blob.nullable);
     }
 
     #[tokio::test]

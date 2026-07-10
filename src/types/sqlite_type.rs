@@ -70,3 +70,37 @@ pub fn sqlite_to_db_type(ty: SqliteType) -> DbType {
         SqliteType::Unknown(s) => DbType::Unknown(s),
     }
 }
+
+/// Map a declared SQLite column type string to [`DbType`], preserving
+/// the user's declared intent rather than falling back to SQLite affinity.
+///
+/// SQLite's five storage classes lose information (e.g. `BIGINT` and `SMALLINT`
+/// both map to `Integer` affinity).  This function checks the declared type
+/// name first so that `BIGINT` → `DbType::BigInt` → `i64` instead of `i32`.
+///
+/// Unknown type names fall through to the existing affinity-based
+/// [`sqlite_to_db_type`] / [`SqliteType::map_sqlite_type`] pipeline.
+///
+/// # Examples
+///
+/// ```
+/// use neutrino_schema::{sqlite_declared_to_db_type, DbType};
+///
+/// assert_eq!(sqlite_declared_to_db_type("BIGINT"), DbType::BigInt);
+/// assert_eq!(sqlite_declared_to_db_type("SMALLINT"), DbType::SmallInt);
+/// assert_eq!(sqlite_declared_to_db_type("INTEGER"), DbType::Integer);
+/// assert_eq!(sqlite_declared_to_db_type("TEXT"), DbType::String);
+/// ```
+pub fn sqlite_declared_to_db_type(declared: &str) -> DbType {
+    match declared.trim().to_uppercase().as_str() {
+        "INT" | "INTEGER" | "INT4"       => return DbType::Integer,
+        "TINYINT"                         => return DbType::SmallInt,
+        "SMALLINT" | "INT2"               => return DbType::SmallInt,
+        "MEDIUMINT"                       => return DbType::Integer,
+        "BIGINT" | "INT8"                 => return DbType::BigInt,
+        "BOOLEAN" | "BOOL"                => return DbType::Boolean,
+        _ => {}
+    }
+    let sqlite_ty = SqliteType::map_sqlite_type(declared);
+    sqlite_to_db_type(sqlite_ty)
+}

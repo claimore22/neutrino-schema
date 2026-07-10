@@ -5,6 +5,9 @@ use crate::ir::{EnumIR, FieldIR, SchemaIR, TableIR};
 use crate::types::{DbType, EnumRef, TypeRegistry};
 use crate::util::naming::to_struct_name;
 
+// TODO: Add GenerateOptions { derive_from_row: bool, .. } to avoid
+// post-processing in tests/codegen_roundtrip_sqlite.rs.
+
 /// Controls whether generated structs include debug annotations.
 ///
 /// Used by [`generate_struct`] and [`generate_files`].

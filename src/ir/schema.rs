@@ -76,6 +76,16 @@ impl SchemaIR {
         Ok(())
     }
 
+    /// Look up a table by name.
+    pub fn table(&self, name: &str) -> Option<&TableIR> {
+        self.tables.iter().find(|t| t.name == name)
+    }
+
+    /// Mutable lookup of a table by name (for IR transforms).
+    pub fn table_mut(&mut self, name: &str) -> Option<&mut TableIR> {
+        self.tables.iter_mut().find(|t| t.name == name)
+    }
+
     fn table_exists(tables: &[TableIR], name: &str) -> bool {
         tables.iter().any(|t| t.name == name)
     }

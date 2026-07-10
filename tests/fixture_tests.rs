@@ -31,7 +31,7 @@ mod sqlite {
         for stmt in sql.split(';') {
             let trimmed = stmt.trim();
             if !trimmed.is_empty() {
-                sqlx::query(trimmed).execute(&pool).await.unwrap();
+                sqlx::query(trimmed).execute(&pool).await.expect("fixture SQL should execute");
             }
         }
 
@@ -245,7 +245,7 @@ mod postgres {
         for stmt in sql.split(';') {
             let trimmed = stmt.trim();
             if !trimmed.is_empty() {
-                sqlx::query(trimmed).execute(&pool).await.unwrap();
+                sqlx::query(trimmed).execute(&pool).await.expect("fixture SQL should execute");
             }
         }
 
@@ -544,7 +544,7 @@ mod mysql {
         for stmt in sql.split(';') {
             let trimmed = stmt.trim();
             if !trimmed.is_empty() {
-                sqlx::query(trimmed).execute(&pool).await.unwrap();
+                sqlx::query(trimmed).execute(&pool).await.expect("fixture SQL should execute");
             }
         }
 

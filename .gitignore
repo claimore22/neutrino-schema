@@ -1,1 +1,7 @@
 generated/
+target/
+releases/
+runtime/
+*.log
+.env
+.vscode/

@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented here.
 
+## [0.4.1] - 2026-07-09
+
+### Added
+- ConstraintIR introspection for PostgreSQL, MySQL, and SQLite
+- `ConstraintIR`, `ConstraintKind`, `ReferentialAction`, `MatchType`, `RelationSource` IR types
+- `list_constraints()` on `DatabaseIntrospector` trait with per-database implementations
+- FK-derived `RelationIR` via `SchemaIR::derive_fk_relations()`
+- Integration tests for constraint introspection (SQLite + MySQL)
+- Inspect CLI now displays constraints and FK vs heuristic relation sources
+
+### Fixed
+- SQLite CHECK constraint parser now handles multi-constraint and whitespace-before-paren
+
+## [0.4.0] - 2026-07-08
+
+### Added
+- Complete type mapping overhaul with `DbType` (17 precise variants)
+- `TypeRegistry` + `RustType` system with config overrides via `[types]`
+- Feature-gated types: `uuid`/`decimal`/`chrono`
+- Codegen import generation for feature-gated types
+- 39 type-matrix tests across PostgreSQL, MySQL, SQLite
+
+### Changed
+- Full 7-layer architecture documented in README
+- CLI commands: `init`, `inspect`, `generate`
+
 ## [0.3.1] - 2026-07-07
 
 ### Changed

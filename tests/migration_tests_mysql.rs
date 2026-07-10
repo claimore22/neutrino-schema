@@ -8,7 +8,7 @@ fn database_url() -> Option<String> {
     std::env::var("DATABASE_URL").ok()
 }
 
-async fn setup(db_suffix: &str) -> Option<neutrino_schema::introspect::MySqlIntrospector> {
+async fn setup(db_suffix: &str) -> Option<neutrino_schema::introspect::MysqlIntrospector> {
     use sqlx::MySqlPool;
 
     let url = database_url()?;
@@ -26,7 +26,7 @@ async fn setup(db_suffix: &str) -> Option<neutrino_schema::introspect::MySqlIntr
     let fixture_url = format!("{}/{}", url.trim_end_matches('/'), db_name);
     let pool = MySqlPool::connect(&fixture_url).await.ok()?;
 
-    let sql = load_migration_sql(MigrationBackend::MySQL).ok()?;
+    let sql = load_migration_sql(MigrationBackend::Mysql).ok()?;
     let sql: &'static str = Box::leak(sql.into_boxed_str());
     for stmt in sql.split(';') {
         let trimmed = stmt.trim();
@@ -35,7 +35,7 @@ async fn setup(db_suffix: &str) -> Option<neutrino_schema::introspect::MySqlIntr
         }
     }
 
-    Some(neutrino_schema::introspect::MySqlIntrospector::new(pool))
+    Some(neutrino_schema::introspect::MysqlIntrospector::new(pool))
 }
 
 async fn teardown(db_suffix: &str) {
@@ -87,7 +87,7 @@ async fn mysql_migration_discovery() {
         eprintln!("Skipping mysql::migration_discovery (DATABASE_URL not set)");
         return;
     };
-    let tables = introspector.list_tables().await.unwrap();
+    let tables = introspector.list_tables().await.expect("list_tables failed");
     assert_eq!(tables.len(), 28, "expected 28 tables");
 
     for name in &[
@@ -138,7 +138,7 @@ async fn mysql_migration_column_order() {
         eprintln!("Skipping mysql::migration_column_order (DATABASE_URL not set)");
         return;
     };
-    let cols = introspector.list_columns("users").await.unwrap();
+    let cols = introspector.list_columns("users").await.expect("list_columns for users failed");
     assert_eq!(cols[0].column_name, "id");
     assert_eq!(cols[1].column_name, "public_id");
     assert_eq!(cols[2].column_name, "first_name");
@@ -156,51 +156,51 @@ async fn mysql_migration_types() {
         return;
     };
 
-    let users = schema.table("users").unwrap();
+    let users = schema.table("users").expect("users table not found in schema");
 
-    let id = users.fields.iter().find(|f| f.name == "id").unwrap();
+    let id = users.fields.iter().find(|f| f.name == "id").expect("users.id field not found");
     assert_eq!(id.ty, DbType::BigInt, "id BIGINT -> DbType::BigInt");
     assert!(!id.nullable);
 
-    let public_id = users.fields.iter().find(|f| f.name == "public_id").unwrap();
+    let public_id = users.fields.iter().find(|f| f.name == "public_id").expect("users.public_id field not found");
     assert_eq!(public_id.ty, DbType::Binary, "public_id BINARY(16) -> DbType::Binary");
     assert!(!public_id.nullable);
 
-    let first_name = users.fields.iter().find(|f| f.name == "first_name").unwrap();
+    let first_name = users.fields.iter().find(|f| f.name == "first_name").expect("users.first_name field not found");
     assert_eq!(first_name.ty, DbType::String, "first_name VARCHAR -> DbType::String");
     assert!(!first_name.nullable);
 
-    let is_active = users.fields.iter().find(|f| f.name == "is_active").unwrap();
+    let is_active = users.fields.iter().find(|f| f.name == "is_active").expect("users.is_active field not found");
     assert_eq!(is_active.ty, DbType::SmallInt, "is_active TINYINT(1) -> DbType::SmallInt");
     assert!(!is_active.nullable);
 
-    let user_agent = users.fields.iter().find(|f| f.name == "user_agent").unwrap();
+    let user_agent = users.fields.iter().find(|f| f.name == "user_agent").expect("users.user_agent field not found");
     assert_eq!(user_agent.ty, DbType::Text, "user_agent TEXT -> DbType::Text");
     assert!(user_agent.nullable);
 
-    let created_at = users.fields.iter().find(|f| f.name == "created_at").unwrap();
+    let created_at = users.fields.iter().find(|f| f.name == "created_at").expect("users.created_at field not found");
     assert_eq!(created_at.ty, DbType::Timestamp, "created_at TIMESTAMP -> DbType::Timestamp");
     assert!(!created_at.nullable);
 
-    let deleted_at = users.fields.iter().find(|f| f.name == "deleted_at").unwrap();
+    let deleted_at = users.fields.iter().find(|f| f.name == "deleted_at").expect("users.deleted_at field not found");
     assert_eq!(deleted_at.ty, DbType::Timestamp, "deleted_at TIMESTAMP -> DbType::Timestamp");
     assert!(deleted_at.nullable);
 
     // user_sessions — JSON (not JSONB in MySQL)
-    let sessions = schema.table("user_sessions").unwrap();
-    let metadata = sessions.fields.iter().find(|f| f.name == "metadata").unwrap();
+    let sessions = schema.table("user_sessions").expect("user_sessions table not found in schema");
+    let metadata = sessions.fields.iter().find(|f| f.name == "metadata").expect("user_sessions.metadata field not found");
     assert_eq!(metadata.ty, DbType::Json, "metadata JSON -> DbType::Json");
     assert!(metadata.nullable);
 
     // security_events — ip_address stored as VARBINARY(16)
-    let events = schema.table("security_events").unwrap();
-    let ip = events.fields.iter().find(|f| f.name == "ip_address").unwrap();
+    let events = schema.table("security_events").expect("security_events table not found in schema");
+    let ip = events.fields.iter().find(|f| f.name == "ip_address").expect("security_events.ip_address field not found");
     assert_eq!(ip.ty, DbType::Binary, "ip_address VARBINARY(16) -> DbType::Binary");
     assert!(ip.nullable);
 
     // oauth_device_codes — poll_interval INT UNSIGNED
-    let codes = schema.table("oauth_device_codes").unwrap();
-    let poll = codes.fields.iter().find(|f| f.name == "poll_interval").unwrap();
+    let codes = schema.table("oauth_device_codes").expect("oauth_device_codes table not found in schema");
+    let poll = codes.fields.iter().find(|f| f.name == "poll_interval").expect("oauth_device_codes.poll_interval field not found");
     assert_eq!(poll.ty, DbType::Integer, "poll_interval INT UNSIGNED -> DbType::Integer");
     assert!(!poll.nullable);
 
@@ -255,7 +255,7 @@ async fn mysql_migration_relations() {
     };
 
     // Self-referencing FK: oauth_refresh_tokens -> self
-    let tokens = schema.table("oauth_refresh_tokens").unwrap();
+    let tokens = schema.table("oauth_refresh_tokens").expect("oauth_refresh_tokens table not found in schema");
     let self_fk = tokens.constraints.iter().find(|c| {
         matches!(&c.kind, ConstraintKind::ForeignKey { referenced_table, .. }
             if referenced_table == "oauth_refresh_tokens")
@@ -266,7 +266,7 @@ async fn mysql_migration_relations() {
     );
 
     // Multiple FKs to users: roles.created_by/updated_by/deleted_by -> users
-    let roles = schema.table("roles").unwrap();
+    let roles = schema.table("roles").expect("roles table not found in schema");
     let fks_to_users: Vec<_> = roles
         .constraints
         .iter()
@@ -278,7 +278,7 @@ async fn mysql_migration_relations() {
     assert_eq!(fks_to_users.len(), 3, "roles should have 3 FKs to users");
 
     // Composite FK: user_sessions(user_id, device_id) -> user_trusted_devices(user_id, device_id)
-    let sessions = schema.table("user_sessions").unwrap();
+    let sessions = schema.table("user_sessions").expect("user_sessions table not found in schema");
     let composite_fk = sessions.constraints.iter().find(|c| {
         matches!(&c.kind, ConstraintKind::ForeignKey {
             columns, referenced_table, referenced_columns, ..

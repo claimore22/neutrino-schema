@@ -172,7 +172,7 @@ mod tests {
 
     #[test]
     fn load_migration_sqlite() {
-        let sql = load_migration_sql(MigrationBackend::Sqlite).unwrap();
+        let sql = load_migration_sql(MigrationBackend::Sqlite).expect("load_migration_sql failed");
         // Should contain users table
         assert!(sql.contains("CREATE TABLE"));
         assert!(sql.contains("users"));

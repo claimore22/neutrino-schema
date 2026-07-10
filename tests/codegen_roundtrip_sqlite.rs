@@ -36,7 +36,7 @@ async fn generated_models_roundtrip_sqlite() {
     for stmt in sql.split(';') {
         let trimmed = stmt.trim();
         if !trimmed.is_empty() {
-            sqlx::query(trimmed).execute(&pool).await.unwrap();
+            sqlx::query(trimmed).execute(&pool).await.expect("failed to execute fixture SQL statement");
         }
     }
 
@@ -44,10 +44,10 @@ async fn generated_models_roundtrip_sqlite() {
         neutrino_schema::introspect::SqliteIntrospector::new(pool);
 
     // ── 2. Introspect ─────────────────────────────────────────────────
-    let table_names = introspector.list_tables().await.unwrap();
+    let table_names = introspector.list_tables().await.expect("list_tables failed");
     let mut struct_strs = Vec::new();
     for name in &table_names {
-        let columns = introspector.list_columns(name).await.unwrap();
+        let columns = introspector.list_columns(name).await.expect("list_columns failed");
         let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
         let table = neutrino_schema::ir::TableIR {
             name: name.clone(),
@@ -67,8 +67,8 @@ async fn generated_models_roundtrip_sqlite() {
     let tmp = std::env::temp_dir().join("ns_roundtrip_sqlite");
     let _ = std::fs::remove_dir_all(&tmp);
 
-    std::fs::create_dir_all(tmp.join("src")).unwrap();
-    std::fs::create_dir_all(tmp.join("tests")).unwrap();
+    std::fs::create_dir_all(tmp.join("src")).expect("failed to create temp dir");
+    std::fs::create_dir_all(tmp.join("tests")).expect("failed to create temp dir");
 
     // Cargo.toml
     std::fs::write(
@@ -83,14 +83,14 @@ sqlx = { version = "0.9", features = ["runtime-tokio", "sqlite"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 "#,
     )
-    .unwrap();
+    .expect("failed to write temp file");
 
     // src/lib.rs
-    std::fs::write(tmp.join("src").join("lib.rs"), "pub mod models;\n").unwrap();
+    std::fs::write(tmp.join("src").join("lib.rs"), "pub mod models;\n").expect("failed to write temp file");
 
     // src/models.rs
     let models_content = struct_strs.join("\n");
-    std::fs::write(tmp.join("src").join("models.rs"), models_content).unwrap();
+    std::fs::write(tmp.join("src").join("models.rs"), models_content).expect("failed to write temp file");
 
     // ── 4. Write roundtrip test ───────────────────────────────────────
     // We embed the fixture SQL (schema + seed data) directly in the test
@@ -120,7 +120,7 @@ async fn users_roundtrip() {{
     for stmt in SCHEMA_SQL.split(';') {{
         let trimmed = stmt.trim();
         if !trimmed.is_empty() {{
-            sqlx::query(trimmed).execute(&pool).await.unwrap();
+            sqlx::query(trimmed).execute(&pool).await.expect("failed to execute fixture SQL statement");
         }}
     }}
 
@@ -131,12 +131,12 @@ async fn users_roundtrip() {{
 
     assert_eq!(rows.len(), 2, "users row count");
 
-    let alice = rows.iter().find(|u| u.email == "alice@example.com").unwrap();
+    let alice = rows.iter().find(|u| u.email == "alice@example.com").expect("alice not found in users");
     assert_eq!(alice.id, 1);
     assert_eq!(alice.age, 30);
     assert_eq!(alice.is_active, 1);
 
-    let bob = rows.iter().find(|u| u.email == "bob@example.com").unwrap();
+    let bob = rows.iter().find(|u| u.email == "bob@example.com").expect("bob not found in users");
     assert_eq!(bob.id, 2);
     assert_eq!(bob.age, 25);
 }}
@@ -157,7 +157,7 @@ async fn posts_roundtrip() {{
     for stmt in SCHEMA_SQL.split(';') {{
         let trimmed = stmt.trim();
         if !trimmed.is_empty() {{
-            sqlx::query(trimmed).execute(&pool).await.unwrap();
+            sqlx::query(trimmed).execute(&pool).await.expect("failed to execute fixture SQL statement");
         }}
     }}
 
@@ -168,7 +168,7 @@ async fn posts_roundtrip() {{
 
     assert_eq!(rows.len(), 3, "posts row count");
 
-    let first = rows.iter().find(|p| p.title == "First Post").unwrap();
+    let first = rows.iter().find(|p| p.title == "First Post").expect("first post not found");
     assert_eq!(first.user_id, 1);
 }}
 
@@ -188,7 +188,7 @@ async fn tags_roundtrip() {{
     for stmt in SCHEMA_SQL.split(';') {{
         let trimmed = stmt.trim();
         if !trimmed.is_empty() {{
-            sqlx::query(trimmed).execute(&pool).await.unwrap();
+            sqlx::query(trimmed).execute(&pool).await.expect("failed to execute fixture SQL statement");
         }}
     }}
 
@@ -199,7 +199,7 @@ async fn tags_roundtrip() {{
 
     assert_eq!(rows.len(), 4, "tags row count");
 
-    let tech = rows.iter().find(|t| t.name == "tech").unwrap();
+    let tech = rows.iter().find(|t| t.name == "tech").expect("tech tag not found");
     assert_eq!(tech.description.as_deref(), Some("Technology-related posts"));
 }}
 
@@ -219,7 +219,7 @@ async fn post_tags_roundtrip() {{
     for stmt in SCHEMA_SQL.split(';') {{
         let trimmed = stmt.trim();
         if !trimmed.is_empty() {{
-            sqlx::query(trimmed).execute(&pool).await.unwrap();
+            sqlx::query(trimmed).execute(&pool).await.expect("failed to execute fixture SQL statement");
         }}
     }}
 
@@ -247,7 +247,7 @@ async fn profiles_roundtrip() {{
     for stmt in SCHEMA_SQL.split(';') {{
         let trimmed = stmt.trim();
         if !trimmed.is_empty() {{
-            sqlx::query(trimmed).execute(&pool).await.unwrap();
+            sqlx::query(trimmed).execute(&pool).await.expect("failed to execute fixture SQL statement");
         }}
     }}
 
@@ -258,7 +258,7 @@ async fn profiles_roundtrip() {{
 
     assert_eq!(rows.len(), 2, "profiles row count");
 
-    let alice = rows.iter().find(|p| p.email == "alice@example.com").unwrap();
+    let alice = rows.iter().find(|p| p.email == "alice@example.com").expect("alice profile not found");
     assert_eq!(alice.display_name, "Alice");
     assert!(alice.avatar_url.is_none());
 }}
@@ -279,7 +279,7 @@ async fn all_types_roundtrip() {{
     for stmt in SCHEMA_SQL.split(';') {{
         let trimmed = stmt.trim();
         if !trimmed.is_empty() {{
-            sqlx::query(trimmed).execute(&pool).await.unwrap();
+            sqlx::query(trimmed).execute(&pool).await.expect("failed to execute fixture SQL statement");
         }}
     }}
 
@@ -306,7 +306,7 @@ async fn all_types_roundtrip() {{
 "##,
     );
 
-    std::fs::write(tmp.join("tests").join("roundtrip.rs"), roundtrip_test).unwrap();
+    std::fs::write(tmp.join("tests").join("roundtrip.rs"), roundtrip_test).expect("failed to write temp file");
 
     // ── 5. cargo test on the generated project ─────────────────────────
     let status = std::process::Command::new("cargo")

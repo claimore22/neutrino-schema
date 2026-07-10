@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use common::migrations_common::{load_migration_sql, MigrationBackend};
 use neutrino_schema::introspect::DatabaseIntrospector;
 use neutrino_schema::types::DbType;
-use neutrino_schema::SchemaIR;
+use neutrino_schema::{ConstraintIR, SchemaIR};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -18,11 +18,11 @@ fn database_url() -> Option<String> {
 async fn build_schema_sqlite(db_suffix: &str) -> SchemaIR {
     use sqlx::SqlitePool;
 
-    let pool = SqlitePool::connect(":memory:").await.unwrap();
-    let sql = load_migration_sql(MigrationBackend::Sqlite).unwrap();
+    let pool = SqlitePool::connect(":memory:").await.expect("failed to connect to in-memory SQLite pool");
+    let sql = load_migration_sql(MigrationBackend::Sqlite).expect("load_migration_sql failed for Sqlite");
     common::migrations_common::execute_sqlite_batch(&pool, &sql)
         .await
-        .unwrap();
+        .expect("execute_sqlite_batch failed");
 
     let introspector = neutrino_schema::introspect::SqliteIntrospector::new(pool);
     build_schema_from(introspector).await
@@ -43,7 +43,7 @@ async fn build_schema_postgres(db_name: &str) -> Option<SchemaIR> {
 
     let fixture_url = format!("{}/{}", url.trim_end_matches('/'), db_name);
     let pool = PgPool::connect(&fixture_url).await.ok()?;
-    let sql = load_migration_sql(MigrationBackend::Postgres).unwrap();
+    let sql = load_migration_sql(MigrationBackend::Postgres).expect("load_migration_sql failed for Postgres");
     let sql: &'static str = Box::leak(sql.into_boxed_str());
     for stmt in sql.split(';') {
         let trimmed = stmt.trim();
@@ -70,7 +70,7 @@ async fn build_schema_mysql(db_name: &str) -> Option<SchemaIR> {
 
     let fixture_url = format!("{}/{}", url.trim_end_matches('/'), db_name);
     let pool = MySqlPool::connect(&fixture_url).await.ok()?;
-    let sql = load_migration_sql(MigrationBackend::MySQL).unwrap();
+    let sql = load_migration_sql(MigrationBackend::Mysql).expect("load_migration_sql failed for Mysql");
     let sql: &'static str = Box::leak(sql.into_boxed_str());
     for stmt in sql.split(';') {
         let trimmed = stmt.trim();
@@ -78,22 +78,22 @@ async fn build_schema_mysql(db_name: &str) -> Option<SchemaIR> {
             sqlx::query(trimmed).execute(&pool).await.ok();
         }
     }
-    let introspector = neutrino_schema::introspect::MySqlIntrospector::new(pool);
+    let introspector = neutrino_schema::introspect::MysqlIntrospector::new(pool);
     Some(build_schema_from(introspector).await)
 }
 
 async fn build_schema_from(
     introspector: impl DatabaseIntrospector,
 ) -> SchemaIR {
-    let table_names = introspector.list_tables().await.unwrap();
+    let table_names = introspector.list_tables().await.expect("list_tables failed");
     let mut tables = Vec::new();
     for name in &table_names {
-        let columns = introspector.list_columns(name).await.unwrap();
+        let columns = introspector.list_columns(name).await.expect("list_columns failed");
         let fields: Vec<_> = columns
             .iter()
             .map(|c| introspector.column_to_field(c))
             .collect();
-        let constraints = introspector.list_constraints(name).await.unwrap();
+        let constraints = introspector.list_constraints(name).await.expect("list_constraints failed");
         tables.push(neutrino_schema::ir::TableIR {
             name: name.clone(),
             fields,
@@ -179,8 +179,8 @@ async fn pg_mysql_type_equivalence() {
     ];
 
     for &((ref table, ref col), ref expected_ty) in equivalent {
-        let pg_key = (table.clone(), col.clone());
-        let mysql_key = (table.clone(), col.clone());
+        let pg_key = (table.to_string(), col.to_string());
+        let mysql_key = (table.to_string(), col.to_string());
         let pg_val = pg_map.get(&pg_key).map(|(ty, _)| ty);
         let mysql_val = mysql_map.get(&mysql_key).map(|(ty, _)| ty);
         assert_eq!(
@@ -271,7 +271,7 @@ async fn sqlite_common_types() {
     ];
     for &((ref table, ref col), nullable) in text_cols {
         let key = (table.to_string(), col.to_string());
-        let (ty, n) = sqlite_map.get(&key).unwrap();
+        let (ty, n) = sqlite_map.get(&key).expect("key not found in sqlite_map");
         assert_eq!(*n, nullable, "SQLite {table}.{col} nullable mismatch");
         if *col == "public_id" {
             assert_eq!(*ty, DbType::Binary, "SQLite {table}.{col}: expected Binary, got {ty:?}");
@@ -316,7 +316,7 @@ async fn fk_parity_across_backends() {
     // Self-referencing FK on oauth_refresh_tokens in all backends
     let has_self_fk = |fk_map: &HashMap<String, Vec<_>>, table: &str| -> bool {
         fk_map.get(table).map_or(false, |fks| {
-            fks.iter().any(|c| {
+            fks.iter().any(|c:&&ConstraintIR| {
                 matches!(&c.kind, neutrino_schema::ir::ConstraintKind::ForeignKey {
                     referenced_table, ..
                 } if referenced_table == table)
@@ -344,7 +344,7 @@ async fn fk_parity_across_backends() {
     // Composite FK: user_sessions -> user_trusted_devices
     let has_composite = |fk_map: &HashMap<String, Vec<_>>| -> bool {
         fk_map.get("user_sessions").map_or(false, |fks| {
-            fks.iter().any(|c| {
+            fks.iter().any(|c:&&ConstraintIR| {
                 matches!(&c.kind, neutrino_schema::ir::ConstraintKind::ForeignKey {
                     columns, referenced_table, referenced_columns, ..
                 } if columns.len() == 2

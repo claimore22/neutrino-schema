@@ -77,7 +77,7 @@ async fn postgres_migration_discovery() {
         eprintln!("Skipping postgres::migration_discovery (DATABASE_URL not set)");
         return;
     };
-    let tables = introspector.list_tables().await.unwrap();
+    let tables = introspector.list_tables().await.expect("list_tables failed");
     assert_eq!(tables.len(), 28, "expected 28 tables");
 
     for name in &[
@@ -105,7 +105,7 @@ async fn postgres_migration_column_order() {
         eprintln!("Skipping postgres::migration_column_order (DATABASE_URL not set)");
         return;
     };
-    let cols = introspector.list_columns("users").await.unwrap();
+    let cols = introspector.list_columns("users").await.expect("list_columns for users failed");
     assert_eq!(cols[0].column_name, "id");
     assert_eq!(cols[1].column_name, "public_id");
     assert_eq!(cols[2].column_name, "first_name");
@@ -123,44 +123,44 @@ async fn postgres_migration_types() {
         return;
     };
 
-    let users = schema.table("users").unwrap();
-    let public_id = users.fields.iter().find(|f| f.name == "public_id").unwrap();
+    let users = schema.table("users").expect("users table not found in schema");
+    let public_id = users.fields.iter().find(|f| f.name == "public_id").expect("users.public_id field not found");
     assert_eq!(public_id.ty, DbType::Uuid, "public_id UUID -> DbType::Uuid");
     assert!(!public_id.nullable);
 
-    let email = users.fields.iter().find(|f| f.name == "email").unwrap();
+    let email = users.fields.iter().find(|f| f.name == "email").expect("users.email field not found");
     assert_eq!(email.ty, DbType::String, "email VARCHAR -> DbType::String");
     assert!(!email.nullable);
 
-    let is_active = users.fields.iter().find(|f| f.name == "is_active").unwrap();
+    let is_active = users.fields.iter().find(|f| f.name == "is_active").expect("users.is_active field not found");
     assert_eq!(is_active.ty, DbType::SmallInt, "is_active SMALLINT -> DbType::SmallInt");
     assert!(!is_active.nullable);
 
-    let last_login_ip = users.fields.iter().find(|f| f.name == "last_login_ip").unwrap();
+    let last_login_ip = users.fields.iter().find(|f| f.name == "last_login_ip").expect("users.last_login_ip field not found");
     assert_eq!(last_login_ip.ty, DbType::Inet, "last_login_ip INET -> DbType::Inet");
     assert!(last_login_ip.nullable);
 
-    let created_at = users.fields.iter().find(|f| f.name == "created_at").unwrap();
+    let created_at = users.fields.iter().find(|f| f.name == "created_at").expect("users.created_at field not found");
     assert_eq!(created_at.ty, DbType::TimestampTz, "created_at TIMESTAMPTZ -> DbType::TimestampTz");
     assert!(!created_at.nullable);
 
-    let deleted_at = users.fields.iter().find(|f| f.name == "deleted_at").unwrap();
+    let deleted_at = users.fields.iter().find(|f| f.name == "deleted_at").expect("users.deleted_at field not found");
     assert_eq!(deleted_at.ty, DbType::TimestampTz, "deleted_at TIMESTAMPTZ -> DbType::TimestampTz");
     assert!(deleted_at.nullable);
 
     // oauth_refresh_tokens — BOOLEAN, BYTEA
-    let tokens = schema.table("oauth_refresh_tokens").unwrap();
-    let token = tokens.fields.iter().find(|f| f.name == "token").unwrap();
+    let tokens = schema.table("oauth_refresh_tokens").expect("oauth_refresh_tokens table not found in schema");
+    let token = tokens.fields.iter().find(|f| f.name == "token").expect("oauth_refresh_tokens.token field not found");
     assert_eq!(token.ty, DbType::Binary, "token BYTEA -> DbType::Binary");
     assert!(!token.nullable);
 
-    let revoked = tokens.fields.iter().find(|f| f.name == "revoked").unwrap();
+    let revoked = tokens.fields.iter().find(|f| f.name == "revoked").expect("oauth_refresh_tokens.revoked field not found");
     assert_eq!(revoked.ty, DbType::Boolean, "revoked BOOLEAN -> DbType::Boolean");
     assert!(!revoked.nullable);
 
     // user_sessions — JSONB
-    let sessions = schema.table("user_sessions").unwrap();
-    let metadata = sessions.fields.iter().find(|f| f.name == "metadata").unwrap();
+    let sessions = schema.table("user_sessions").expect("user_sessions table not found in schema");
+    let metadata = sessions.fields.iter().find(|f| f.name == "metadata").expect("user_sessions.metadata field not found");
     assert_eq!(metadata.ty, DbType::Jsonb, "metadata JSONB -> DbType::Jsonb");
     assert!(metadata.nullable);
 
@@ -226,7 +226,7 @@ async fn postgres_migration_relations() {
     };
 
     // Self-referencing FK: oauth_refresh_tokens -> self
-    let tokens = schema.table("oauth_refresh_tokens").unwrap();
+    let tokens = schema.table("oauth_refresh_tokens").expect("oauth_refresh_tokens table not found in schema");
     let self_fk = tokens.constraints.iter().find(|c| {
         matches!(&c.kind, ConstraintKind::ForeignKey { referenced_table, .. }
             if referenced_table == "oauth_refresh_tokens")
@@ -234,7 +234,7 @@ async fn postgres_migration_relations() {
     assert!(self_fk.is_some(), "expected self-referencing FK on oauth_refresh_tokens");
 
     // Multiple FKs to users: roles.created_by/updated_by/deleted_by -> users
-    let roles = schema.table("roles").unwrap();
+    let roles = schema.table("roles").expect("roles table not found in schema");
     let fks_to_users: Vec<_> = roles.constraints.iter().filter(|c| {
         matches!(&c.kind, ConstraintKind::ForeignKey { referenced_table, .. }
             if referenced_table == "users")
@@ -242,7 +242,7 @@ async fn postgres_migration_relations() {
     assert_eq!(fks_to_users.len(), 3, "roles should have 3 FKs to users");
 
     // Composite FK: user_sessions(user_id, device_id) -> user_trusted_devices(user_id, device_id)
-    let sessions = schema.table("user_sessions").unwrap();
+    let sessions = schema.table("user_sessions").expect("user_sessions table not found in schema");
     let composite_fk = sessions.constraints.iter().find(|c| {
         matches!(&c.kind, ConstraintKind::ForeignKey {
             columns, referenced_table, referenced_columns, ..

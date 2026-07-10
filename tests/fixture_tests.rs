@@ -41,7 +41,7 @@ mod sqlite {
     #[tokio::test]
     async fn tables_exist() {
         let introspector = setup().await;
-        let tables = introspector.list_tables().await.unwrap();
+        let tables = introspector.list_tables().await.expect("list_tables failed");
         for name in &["users", "posts", "tags", "post_tags", "profiles", "all_types"] {
             assert!(tables.contains(&name.to_string()), "missing table: {name}");
         }
@@ -50,87 +50,87 @@ mod sqlite {
     #[tokio::test]
     async fn users_fields() {
         let introspector = setup().await;
-        let columns = introspector.list_columns("users").await.unwrap();
+        let columns = introspector.list_columns("users").await.expect("list_columns for users failed");
         let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
 
-        let email = fields.iter().find(|f| f.name == "email").unwrap();
+        let email = fields.iter().find(|f| f.name == "email").expect("users.email field not found");
         assert_eq!(email.ty, DbType::String);
         assert!(!email.nullable);
 
-        let bio = fields.iter().find(|f| f.name == "bio").unwrap();
+        let bio = fields.iter().find(|f| f.name == "bio").expect("users.bio field not found");
         assert_eq!(bio.ty, DbType::String);
         assert!(bio.nullable);
 
-        let age = fields.iter().find(|f| f.name == "age").unwrap();
+        let age = fields.iter().find(|f| f.name == "age").expect("users.age field not found");
         assert_eq!(age.ty, DbType::Integer);
         assert!(!age.nullable);
 
-        let salary = fields.iter().find(|f| f.name == "salary").unwrap();
+        let salary = fields.iter().find(|f| f.name == "salary").expect("users.salary field not found");
         assert_eq!(salary.ty, DbType::Float64);
         assert!(salary.nullable);
 
-        let is_active = fields.iter().find(|f| f.name == "is_active").unwrap();
+        let is_active = fields.iter().find(|f| f.name == "is_active").expect("users.is_active field not found");
         assert_eq!(is_active.ty, DbType::Integer);
     }
 
     #[tokio::test]
     async fn all_types_fields() {
         let introspector = setup().await;
-        let columns = introspector.list_columns("all_types").await.unwrap();
+        let columns = introspector.list_columns("all_types").await.expect("list_columns for all_types failed");
         let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
 
         assert_eq!(
-            fields.iter().find(|f| f.name == "small_int_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "small_int_value").expect("all_types.small_int_value field not found").ty,
             DbType::SmallInt
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "integer_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "integer_value").expect("all_types.integer_value field not found").ty,
             DbType::Integer
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "bigint_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "bigint_value").expect("all_types.bigint_value field not found").ty,
             DbType::BigInt
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "real_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "real_value").expect("all_types.real_value field not found").ty,
             DbType::Float64
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "text_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "text_value").expect("all_types.text_value field not found").ty,
             DbType::String
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "varchar_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "varchar_value").expect("all_types.varchar_value field not found").ty,
             DbType::String
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "blob_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "blob_value").expect("all_types.blob_value field not found").ty,
             DbType::Binary
         );
 
         assert!(matches!(
-            fields.iter().find(|f| f.name == "json_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "json_value").expect("all_types.json_value field not found").ty,
             DbType::Unknown(_)
         ));
         assert!(matches!(
-            fields.iter().find(|f| f.name == "date_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "date_value").expect("all_types.date_value field not found").ty,
             DbType::Unknown(_)
         ));
         assert!(matches!(
-            fields.iter().find(|f| f.name == "datetime_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "datetime_value").expect("all_types.datetime_value field not found").ty,
             DbType::Unknown(_)
         ));
 
         // Nullable columns
-        let nullable_bool = fields.iter().find(|f| f.name == "nullable_bool").unwrap();
+        let nullable_bool = fields.iter().find(|f| f.name == "nullable_bool").expect("all_types.nullable_bool field not found");
         assert_eq!(nullable_bool.ty, DbType::Boolean);
         assert!(nullable_bool.nullable);
 
-        let nullable_text = fields.iter().find(|f| f.name == "nullable_text").unwrap();
+        let nullable_text = fields.iter().find(|f| f.name == "nullable_text").expect("all_types.nullable_text field not found");
         assert_eq!(nullable_text.ty, DbType::String);
         assert!(nullable_text.nullable);
 
-        let nullable_blob = fields.iter().find(|f| f.name == "nullable_blob").unwrap();
+        let nullable_blob = fields.iter().find(|f| f.name == "nullable_blob").expect("all_types.nullable_blob field not found");
         assert_eq!(nullable_blob.ty, DbType::Binary);
         assert!(nullable_blob.nullable);
     }
@@ -139,7 +139,7 @@ mod sqlite {
     async fn constraints() {
         let introspector = setup().await;
 
-        let user_constraints = introspector.list_constraints("users").await.unwrap();
+        let user_constraints = introspector.list_constraints("users").await.expect("list_constraints for users failed");
 
         // Primary key (generated name: users_pk)
         assert!(user_constraints
@@ -162,7 +162,7 @@ mod sqlite {
             .iter()
             .any(|c| matches!(&c.kind, ConstraintKind::Check { .. })));
 
-        let post_constraints = introspector.list_constraints("posts").await.unwrap();
+        let post_constraints = introspector.list_constraints("posts").await.expect("list_constraints for posts failed");
         assert!(post_constraints
             .iter()
             .any(|c| matches!(&c.kind, ConstraintKind::PrimaryKey { .. })));
@@ -175,18 +175,18 @@ mod sqlite {
         // CHECK constraint parsed from SQL preserves the name
         assert!(post_constraints.iter().any(|c| c.name == "posts_title_check"));
 
-        let tag_constraints = introspector.list_constraints("tags").await.unwrap();
+        let tag_constraints = introspector.list_constraints("tags").await.expect("list_constraints for tags failed");
         // UNIQUE on name — auto-generated name
         assert!(tag_constraints
             .iter()
             .any(|c| matches!(&c.kind, ConstraintKind::Unique { columns } if columns == &vec!["name"])));
 
-        let pt_constraints = introspector.list_constraints("post_tags").await.unwrap();
+        let pt_constraints = introspector.list_constraints("post_tags").await.expect("list_constraints for post_tags failed");
         assert!(pt_constraints
             .iter()
             .any(|c| matches!(&c.kind, ConstraintKind::PrimaryKey { columns } if columns.len() == 2)));
 
-        let profile_constraints = introspector.list_constraints("profiles").await.unwrap();
+        let profile_constraints = introspector.list_constraints("profiles").await.expect("list_constraints for profiles failed");
         // UNIQUE on email — auto-generated
         assert!(profile_constraints
             .iter()
@@ -196,12 +196,12 @@ mod sqlite {
     #[tokio::test]
     async fn fk_relations_and_table_accessor() {
         let introspector = setup().await;
-        let table_names = introspector.list_tables().await.unwrap();
+        let table_names = introspector.list_tables().await.expect("list_tables failed");
         let mut tables = Vec::new();
         for name in &table_names {
-            let columns = introspector.list_columns(name).await.unwrap();
+            let columns = introspector.list_columns(name).await.expect("list_columns failed");
             let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
-            let constraints = introspector.list_constraints(name).await.unwrap();
+            let constraints = introspector.list_constraints(name).await.expect("list_constraints failed");
             tables.push(neutrino_schema::ir::TableIR {
                 name: name.clone(),
                 fields,
@@ -215,7 +215,7 @@ mod sqlite {
             .iter()
             .find(|r| r.from_table == "posts");
         assert!(fk.is_some());
-        assert_eq!(fk.unwrap().from_field, "user_id");
+        assert_eq!(fk.expect("FK relation from posts should exist").from_field, "user_id");
 
         assert!(schema.table("users").is_some());
         assert!(schema.table("nonexistent").is_none());
@@ -280,7 +280,7 @@ mod postgres {
             eprintln!("Skipping postgres::tables_exist (DATABASE_URL not set)");
             return;
         };
-        let tables = introspector.list_tables().await.unwrap();
+        let tables = introspector.list_tables().await.expect("list_tables failed");
         for name in &["users", "posts", "tags", "post_tags", "profiles", "all_types"] {
             assert!(tables.contains(&name.to_string()), "missing table: {name}");
         }
@@ -294,30 +294,30 @@ mod postgres {
             eprintln!("Skipping postgres::users_fields (DATABASE_URL not set)");
             return;
         };
-        let columns = introspector.list_columns("users").await.unwrap();
+        let columns = introspector.list_columns("users").await.expect("list_columns for users failed");
         let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
 
-        let email = fields.iter().find(|f| f.name == "email").unwrap();
+        let email = fields.iter().find(|f| f.name == "email").expect("users.email field not found");
         assert_eq!(email.ty, DbType::String);
         assert!(!email.nullable);
 
-        let full_name = fields.iter().find(|f| f.name == "full_name").unwrap();
+        let full_name = fields.iter().find(|f| f.name == "full_name").expect("users.full_name field not found");
         assert_eq!(full_name.ty, DbType::Text);
         assert!(!full_name.nullable);
 
-        let bio = fields.iter().find(|f| f.name == "bio").unwrap();
+        let bio = fields.iter().find(|f| f.name == "bio").expect("users.bio field not found");
         assert_eq!(bio.ty, DbType::Text);
         assert!(bio.nullable);
 
-        let age = fields.iter().find(|f| f.name == "age").unwrap();
+        let age = fields.iter().find(|f| f.name == "age").expect("users.age field not found");
         assert_eq!(age.ty, DbType::Integer);
         assert!(!age.nullable);
 
-        let salary = fields.iter().find(|f| f.name == "salary").unwrap();
+        let salary = fields.iter().find(|f| f.name == "salary").expect("users.salary field not found");
         assert_eq!(salary.ty, DbType::Decimal);
         assert!(salary.nullable);
 
-        let is_active = fields.iter().find(|f| f.name == "is_active").unwrap();
+        let is_active = fields.iter().find(|f| f.name == "is_active").expect("users.is_active field not found");
         assert_eq!(is_active.ty, DbType::Boolean);
         assert!(!is_active.nullable);
 
@@ -331,102 +331,102 @@ mod postgres {
             eprintln!("Skipping postgres::all_types_fields (DATABASE_URL not set)");
             return;
         };
-        let columns = introspector.list_columns("all_types").await.unwrap();
+        let columns = introspector.list_columns("all_types").await.expect("list_columns for all_types failed");
         let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
 
         assert_eq!(
-            fields.iter().find(|f| f.name == "small_int_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "small_int_value").expect("all_types.small_int_value field not found").ty,
             DbType::SmallInt
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "integer_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "integer_value").expect("all_types.integer_value field not found").ty,
             DbType::Integer
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "bigint_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "bigint_value").expect("all_types.bigint_value field not found").ty,
             DbType::BigInt
         );
 
         assert_eq!(
-            fields.iter().find(|f| f.name == "serial_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "serial_value").expect("all_types.serial_value field not found").ty,
             DbType::Integer
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "bigserial_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "bigserial_value").expect("all_types.bigserial_value field not found").ty,
             DbType::BigInt
         );
 
         assert_eq!(
-            fields.iter().find(|f| f.name == "numeric_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "numeric_value").expect("all_types.numeric_value field not found").ty,
             DbType::Decimal
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "real_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "real_value").expect("all_types.real_value field not found").ty,
             DbType::Float32
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "double_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "double_value").expect("all_types.double_value field not found").ty,
             DbType::Float64
         );
 
         assert_eq!(
-            fields.iter().find(|f| f.name == "varchar_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "varchar_value").expect("all_types.varchar_value field not found").ty,
             DbType::String
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "text_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "text_value").expect("all_types.text_value field not found").ty,
             DbType::Text
         );
 
         assert_eq!(
-            fields.iter().find(|f| f.name == "boolean_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "boolean_value").expect("all_types.boolean_value field not found").ty,
             DbType::Boolean
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "bytea_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "bytea_value").expect("all_types.bytea_value field not found").ty,
             DbType::Binary
         );
 
         assert_eq!(
-            fields.iter().find(|f| f.name == "date_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "date_value").expect("all_types.date_value field not found").ty,
             DbType::Date
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "time_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "time_value").expect("all_types.time_value field not found").ty,
             DbType::Time
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "timestamp_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "timestamp_value").expect("all_types.timestamp_value field not found").ty,
             DbType::Timestamp
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "timestamptz_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "timestamptz_value").expect("all_types.timestamptz_value field not found").ty,
             DbType::TimestampTz
         );
 
         assert_eq!(
-            fields.iter().find(|f| f.name == "json_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "json_value").expect("all_types.json_value field not found").ty,
             DbType::Json
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "jsonb_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "jsonb_value").expect("all_types.jsonb_value field not found").ty,
             DbType::Jsonb
         );
 
         assert_eq!(
-            fields.iter().find(|f| f.name == "uuid_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "uuid_value").expect("all_types.uuid_value field not found").ty,
             DbType::Uuid
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "inet_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "inet_value").expect("all_types.inet_value field not found").ty,
             DbType::Inet
         );
 
-        let mood = fields.iter().find(|f| f.name == "mood_value").unwrap();
+        let mood = fields.iter().find(|f| f.name == "mood_value").expect("all_types.mood_value field not found");
         assert!(matches!(mood.ty, DbType::Unknown(_)));
         assert_eq!(mood.raw_type, "USER-DEFINED");
 
-        let arr = fields.iter().find(|f| f.name == "text_array_value").unwrap();
+        let arr = fields.iter().find(|f| f.name == "text_array_value").expect("all_types.text_array_value field not found");
         assert!(matches!(arr.ty, DbType::Array(_)));
 
         drop(introspector);
@@ -440,23 +440,23 @@ mod postgres {
             return;
         };
 
-        let user_constraints = introspector.list_constraints("users").await.unwrap();
+        let user_constraints = introspector.list_constraints("users").await.expect("list_constraints for users failed");
         assert!(user_constraints
             .iter()
             .any(|c| matches!(&c.kind, ConstraintKind::PrimaryKey { .. })));
         assert!(user_constraints.iter().any(|c| c.name == "users_email_unique"));
         assert!(user_constraints.iter().any(|c| c.name == "users_age_check"));
 
-        let post_constraints = introspector.list_constraints("posts").await.unwrap();
+        let post_constraints = introspector.list_constraints("posts").await.expect("list_constraints for posts failed");
         assert!(post_constraints.iter().any(|c| c.name == "posts_user_id_fkey"));
         assert!(post_constraints.iter().any(|c| c.name == "posts_title_check"));
 
-        let pt_constraints = introspector.list_constraints("post_tags").await.unwrap();
+        let pt_constraints = introspector.list_constraints("post_tags").await.expect("list_constraints for post_tags failed");
         assert!(pt_constraints
             .iter()
             .any(|c| matches!(&c.kind, ConstraintKind::PrimaryKey { columns } if columns.len() == 2)));
 
-        let profile_constraints = introspector.list_constraints("profiles").await.unwrap();
+        let profile_constraints = introspector.list_constraints("profiles").await.expect("list_constraints for profiles failed");
         assert!(profile_constraints.iter().any(|c| c.name == "profiles_email_unique"));
 
         drop(introspector);
@@ -469,10 +469,10 @@ mod postgres {
             eprintln!("Skipping postgres::enums_discovered (DATABASE_URL not set)");
             return;
         };
-        let enums = introspector.introspect_enums().await.unwrap();
+        let enums = introspector.introspect_enums().await.expect("introspect_enums failed");
         let mood = enums.iter().find(|e| e.database_name == "mood");
         assert!(mood.is_some(), "mood enum should be discovered");
-        let mood = mood.unwrap();
+        let mood = mood.expect("mood enum should be discovered");
         assert_eq!(mood.variants.len(), 3);
         assert_eq!(mood.variants[0].database_name, "sad");
         assert_eq!(mood.variants[1].database_name, "ok");
@@ -488,12 +488,12 @@ mod postgres {
             eprintln!("Skipping postgres::fk_relations (DATABASE_URL not set)");
             return;
         };
-        let table_names = introspector.list_tables().await.unwrap();
+        let table_names = introspector.list_tables().await.expect("list_tables failed");
         let mut tables = Vec::new();
         for name in &table_names {
-            let columns = introspector.list_columns(name).await.unwrap();
+            let columns = introspector.list_columns(name).await.expect("list_columns failed");
             let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
-            let constraints = introspector.list_constraints(name).await.unwrap();
+            let constraints = introspector.list_constraints(name).await.expect("list_constraints failed");
             tables.push(neutrino_schema::ir::TableIR {
                 name: name.clone(),
                 fields,
@@ -511,7 +511,7 @@ mod postgres {
             .iter()
             .find(|r| r.from_table == "posts");
         assert!(fk.is_some(), "FK relation from posts should exist");
-        assert_eq!(fk.unwrap().from_field, "user_id");
+        assert_eq!(fk.expect("FK relation from posts should exist").from_field, "user_id");
 
         drop(introspector);
         teardown("ns_fixture_pg_6").await;
@@ -579,7 +579,7 @@ mod mysql {
             eprintln!("Skipping mysql::tables_exist (MySQL unreachable)");
             return;
         };
-        let tables = introspector.list_tables().await.unwrap();
+        let tables = introspector.list_tables().await.expect("list_tables failed");
         for name in &["users", "posts", "tags", "post_tags", "profiles", "all_types"] {
             assert!(tables.contains(&name.to_string()), "missing table: {name}");
         }
@@ -593,26 +593,26 @@ mod mysql {
             eprintln!("Skipping mysql::users_fields (MySQL unreachable)");
             return;
         };
-        let columns = introspector.list_columns("users").await.unwrap();
+        let columns = introspector.list_columns("users").await.expect("list_columns for users failed");
         let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
 
-        let email = fields.iter().find(|f| f.name == "email").unwrap();
+        let email = fields.iter().find(|f| f.name == "email").expect("users.email field not found");
         assert_eq!(email.ty, DbType::String);
         assert!(!email.nullable);
 
-        let bio = fields.iter().find(|f| f.name == "bio").unwrap();
+        let bio = fields.iter().find(|f| f.name == "bio").expect("users.bio field not found");
         assert_eq!(bio.ty, DbType::Text);
         assert!(bio.nullable);
 
-        let age = fields.iter().find(|f| f.name == "age").unwrap();
+        let age = fields.iter().find(|f| f.name == "age").expect("users.age field not found");
         assert_eq!(age.ty, DbType::Integer);
         assert!(!age.nullable);
 
-        let salary = fields.iter().find(|f| f.name == "salary").unwrap();
+        let salary = fields.iter().find(|f| f.name == "salary").expect("users.salary field not found");
         assert_eq!(salary.ty, DbType::Decimal);
         assert!(salary.nullable);
 
-        let is_active = fields.iter().find(|f| f.name == "is_active").unwrap();
+        let is_active = fields.iter().find(|f| f.name == "is_active").expect("users.is_active field not found");
         assert_eq!(is_active.ty, DbType::SmallInt);
         assert!(!is_active.nullable);
 
@@ -626,76 +626,76 @@ mod mysql {
             eprintln!("Skipping mysql::all_types_fields (MySQL unreachable)");
             return;
         };
-        let columns = introspector.list_columns("all_types").await.unwrap();
+        let columns = introspector.list_columns("all_types").await.expect("list_columns for all_types failed");
         let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
 
         assert_eq!(
-            fields.iter().find(|f| f.name == "tiny_int_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "tiny_int_value").expect("all_types.tiny_int_value field not found").ty,
             DbType::SmallInt
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "small_int_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "small_int_value").expect("all_types.small_int_value field not found").ty,
             DbType::SmallInt
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "medium_int_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "medium_int_value").expect("all_types.medium_int_value field not found").ty,
             DbType::Integer
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "integer_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "integer_value").expect("all_types.integer_value field not found").ty,
             DbType::Integer
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "bigint_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "bigint_value").expect("all_types.bigint_value field not found").ty,
             DbType::BigInt
         );
 
         assert_eq!(
-            fields.iter().find(|f| f.name == "decimal_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "decimal_value").expect("all_types.decimal_value field not found").ty,
             DbType::Decimal
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "float_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "float_value").expect("all_types.float_value field not found").ty,
             DbType::Float32
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "double_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "double_value").expect("all_types.double_value field not found").ty,
             DbType::Float64
         );
 
         assert_eq!(
-            fields.iter().find(|f| f.name == "varchar_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "varchar_value").expect("all_types.varchar_value field not found").ty,
             DbType::String
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "text_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "text_value").expect("all_types.text_value field not found").ty,
             DbType::Text
         );
 
         assert_eq!(
-            fields.iter().find(|f| f.name == "enum_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "enum_value").expect("all_types.enum_value field not found").ty,
             DbType::String
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "enum_value").unwrap().raw_type,
+            fields.iter().find(|f| f.name == "enum_value").expect("all_types.enum_value field not found").raw_type,
             "enum"
         );
 
         assert_eq!(
-            fields.iter().find(|f| f.name == "json_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "json_value").expect("all_types.json_value field not found").ty,
             DbType::Json
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "blob_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "blob_value").expect("all_types.blob_value field not found").ty,
             DbType::Binary
         );
 
         assert_eq!(
-            fields.iter().find(|f| f.name == "datetime_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "datetime_value").expect("all_types.datetime_value field not found").ty,
             DbType::Timestamp
         );
         assert_eq!(
-            fields.iter().find(|f| f.name == "timestamp_value").unwrap().ty,
+            fields.iter().find(|f| f.name == "timestamp_value").expect("all_types.timestamp_value field not found").ty,
             DbType::Timestamp
         );
 
@@ -710,23 +710,23 @@ mod mysql {
             return;
         };
 
-        let user_constraints = introspector.list_constraints("users").await.unwrap();
+        let user_constraints = introspector.list_constraints("users").await.expect("list_constraints for users failed");
         assert!(user_constraints
             .iter()
             .any(|c| matches!(&c.kind, ConstraintKind::PrimaryKey { .. })));
         assert!(user_constraints.iter().any(|c| c.name == "users_email_unique"));
         assert!(user_constraints.iter().any(|c| c.name == "users_age_check"));
 
-        let post_constraints = introspector.list_constraints("posts").await.unwrap();
+        let post_constraints = introspector.list_constraints("posts").await.expect("list_constraints for posts failed");
         assert!(post_constraints.iter().any(|c| c.name == "posts_user_id_fkey"));
         assert!(post_constraints.iter().any(|c| c.name == "posts_title_check"));
 
-        let pt_constraints = introspector.list_constraints("post_tags").await.unwrap();
+        let pt_constraints = introspector.list_constraints("post_tags").await.expect("list_constraints for post_tags failed");
         assert!(pt_constraints
             .iter()
             .any(|c| matches!(&c.kind, ConstraintKind::PrimaryKey { columns } if columns.len() == 2)));
 
-        let profile_constraints = introspector.list_constraints("profiles").await.unwrap();
+        let profile_constraints = introspector.list_constraints("profiles").await.expect("list_constraints for profiles failed");
         assert!(profile_constraints.iter().any(|c| c.name == "profiles_email_unique"));
 
         drop(introspector);
@@ -739,12 +739,12 @@ mod mysql {
             eprintln!("Skipping mysql::fk_relations (MySQL unreachable)");
             return;
         };
-        let table_names = introspector.list_tables().await.unwrap();
+        let table_names = introspector.list_tables().await.expect("list_tables failed");
         let mut tables = Vec::new();
         for name in &table_names {
-            let columns = introspector.list_columns(name).await.unwrap();
+            let columns = introspector.list_columns(name).await.expect("list_columns failed");
             let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
-            let constraints = introspector.list_constraints(name).await.unwrap();
+            let constraints = introspector.list_constraints(name).await.expect("list_constraints failed");
             tables.push(neutrino_schema::ir::TableIR {
                 name: name.clone(),
                 fields,
@@ -761,7 +761,7 @@ mod mysql {
             .iter()
             .find(|r| r.from_table == "posts");
         assert!(fk.is_some(), "FK relation from posts should exist");
-        assert_eq!(fk.unwrap().from_field, "user_id");
+        assert_eq!(fk.expect("FK relation from posts should exist").from_field, "user_id");
 
         drop(introspector);
         teardown("ns_fixture_my_5").await;

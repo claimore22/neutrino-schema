@@ -1,3 +1,12 @@
+/// How a relation was discovered.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RelationSource {
+    /// Derived from a real foreign key constraint in the database.
+    ForeignKey(String),
+    /// Inferred via naming heuristic (column ends with `_id`).
+    NamingHeuristic,
+}
+
 /// Controls whether [`SchemaIR::from_tables`](crate::ir::SchemaIR::from_tables) attempts to infer foreign-key-like
 /// relationships between tables.
 ///
@@ -12,12 +21,11 @@ pub enum RelationStrategy {
     NamingHeuristic,
 }
 
-/// An inferred relationship between two tables.
+/// A relationship between two tables.
 ///
-/// Currently produced only by [`RelationStrategy::NamingHeuristic`]:
-/// a column ending in `_id` is assumed to reference the `id` column of
-/// the table named by the prefix (or its plural).
-#[derive(Debug)]
+/// Produced either from a real [`ForeignKey`](crate::ir::ConstraintKind::ForeignKey)
+/// constraint or via the naming heuristic fallback.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RelationIR {
     /// Source table name.
     pub from_table: String,
@@ -27,4 +35,6 @@ pub struct RelationIR {
     pub to_table: String,
     /// Target column name (always `"id"` with current heuristics).
     pub to_field: String,
+    /// How this relation was discovered.
+    pub source: RelationSource,
 }

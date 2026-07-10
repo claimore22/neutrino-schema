@@ -1,5 +1,5 @@
 use crate::introspect::Column;
-use crate::ir::{EnumIR, FieldIR};
+use crate::ir::{ConstraintIR, EnumIR, FieldIR};
 
 /// Abstraction for database introspection.
 ///
@@ -19,6 +19,10 @@ pub trait DatabaseIntrospector: Send + Sync {
     ///
     /// Returns an empty vec for databases without native enum support (SQLite).
     async fn introspect_enums(&self) -> anyhow::Result<Vec<EnumIR>> {
+        Ok(Vec::new())
+    }
+    /// List all constraints (PK, FK, UNIQUE, CHECK) for a given table.
+    async fn list_constraints(&self, _table: &str) -> anyhow::Result<Vec<ConstraintIR>> {
         Ok(Vec::new())
     }
 }

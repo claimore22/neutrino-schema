@@ -29,6 +29,7 @@ fn generates_user_struct() {
     let tables = vec![TableIR {
         name: "users".to_string(),
         fields,
+        constraints: vec![],
     }];
 
     let schema = SchemaIR::from_tables(tables, RelationStrategy::Disabled);
@@ -52,6 +53,7 @@ fn generates_debug_comments() {
     let tables = vec![TableIR {
         name: "items".to_string(),
         fields,
+        constraints: vec![],
     }];
 
     let output = generate_struct(&tables[0], RenderMode::Debug);

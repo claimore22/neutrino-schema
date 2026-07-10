@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::ir::{EnumIR, RelationIR, RelationStrategy, TableIR};
+use crate::ir::{EnumIR, RelationIR, RelationSource, RelationStrategy, TableIR};
 use crate::types::{DbType, EnumRef};
 
 /// Full database schema — the top-level IR object consumed by code generation.
@@ -20,10 +20,10 @@ pub struct SchemaIR {
 impl SchemaIR {
     /// Build a [`SchemaIR`] from a set of tables without enums.
     pub fn from_tables(tables: Vec<TableIR>, strategy: RelationStrategy) -> Self {
-        let relations = match strategy {
-            RelationStrategy::Disabled => Vec::new(),
-            RelationStrategy::NamingHeuristic => Self::infer_relations_heuristic(&tables),
-        };
+        let mut relations = Self::derive_fk_relations(&tables);
+        if strategy == RelationStrategy::NamingHeuristic {
+            relations.extend(Self::infer_relations_heuristic(&tables));
+        }
         SchemaIR {
             tables,
             relations,
@@ -37,10 +37,10 @@ impl SchemaIR {
         enums: Vec<EnumIR>,
         strategy: RelationStrategy,
     ) -> Self {
-        let relations = match strategy {
-            RelationStrategy::Disabled => Vec::new(),
-            RelationStrategy::NamingHeuristic => Self::infer_relations_heuristic(&tables),
-        };
+        let mut relations = Self::derive_fk_relations(&tables);
+        if strategy == RelationStrategy::NamingHeuristic {
+            relations.extend(Self::infer_relations_heuristic(&tables));
+        }
         SchemaIR {
             tables,
             relations,
@@ -80,6 +80,18 @@ impl SchemaIR {
         tables.iter().any(|t| t.name == name)
     }
 
+    fn derive_fk_relations(tables: &[TableIR]) -> Vec<RelationIR> {
+        tables
+            .iter()
+            .flat_map(|table| {
+                table
+                    .constraints
+                    .iter()
+                    .flat_map(|c| c.fk_relations(&table.name))
+            })
+            .collect()
+    }
+
     fn infer_relations_heuristic(tables: &[TableIR]) -> Vec<RelationIR> {
         let mut relations = Vec::new();
 
@@ -105,6 +117,7 @@ impl SchemaIR {
                     from_field: field.name.clone(),
                     to_table,
                     to_field: "id".to_string(),
+                    source: RelationSource::NamingHeuristic,
                 });
             }
         }

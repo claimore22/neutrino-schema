@@ -70,6 +70,7 @@ impl InspectCommand {
             let table_ir = crate::ir::TableIR {
                 name: table_name.clone(),
                 fields,
+                constraints: vec![],
             };
             print!("{}", generate_struct(&table_ir, mode));
         } else {

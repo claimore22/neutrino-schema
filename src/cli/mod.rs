@@ -24,9 +24,11 @@ pub(crate) async fn introspect_tables(
     for name in table_names {
         let columns = introspector.list_columns(name).await?;
         let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
+        let constraints = introspector.list_constraints(name).await?;
         tables.push(crate::ir::TableIR {
             name: name.clone(),
             fields,
+            constraints,
         });
     }
     Ok(tables)

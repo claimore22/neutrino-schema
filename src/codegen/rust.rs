@@ -73,6 +73,7 @@ fn render_field_with_enum_prefix(f: &FieldIR, mode: RenderMode) -> String {
 ///         nullable: false,
 ///         raw_type: "Varchar".into(),
 ///     }],
+///     constraints: vec![],
 /// };
 ///
 /// let out = generate_struct(&table, RenderMode::Clean);
@@ -283,6 +284,7 @@ mod tests {
         let table = TableIR {
             name: "users".into(),
             fields: vec![field],
+            constraints: vec![],
         };
         let result = generate_struct_file(&table, RenderMode::Clean);
         assert!(result.contains("super::enums::Mood"));
@@ -301,6 +303,7 @@ mod tests {
         let table = TableIR {
             name: "users".into(),
             fields: vec![field],
+            constraints: vec![],
         };
         let result = generate_struct_file(&table, RenderMode::Clean);
         assert!(result.contains("Option<super::enums::Mood>"));
@@ -318,6 +321,7 @@ mod tests {
         let table = TableIR {
             name: "users".into(),
             fields: vec![field],
+            constraints: vec![],
         };
         let result = generate_struct(&table, RenderMode::Clean);
         assert!(result.contains("Mood"));

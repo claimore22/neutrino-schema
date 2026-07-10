@@ -129,6 +129,7 @@ async fn sqlite_full_pipeline() {
         tables.push(neutrino_schema::ir::TableIR {
             name: name.clone(),
             fields,
+            constraints: vec![],
         });
     }
 

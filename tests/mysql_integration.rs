@@ -137,7 +137,7 @@ async fn mysql_full_pipeline() {
     for name in &table_names {
         let columns = introspector.list_columns(name).await.expect("list columns");
         let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
-        tables.push(neutrino_schema::ir::TableIR { name: name.clone(), fields });
+        tables.push(neutrino_schema::ir::TableIR { name: name.clone(), fields, constraints: vec![] });
     }
     let schema = SchemaIR::from_tables(tables, RelationStrategy::NamingHeuristic);
     assert!(schema.relations.iter().any(|r| r.from_table == "posts"));

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use sqlx::ColumnOrigin::Table;
 use sqlx::{MySqlPool, Row};
 
 use crate::introspect::parse_referential_action;

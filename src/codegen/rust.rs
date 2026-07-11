@@ -22,17 +22,31 @@ pub enum RenderMode {
 }
 
 fn render_field_default(f: &FieldIR, mode: RenderMode) -> String {
+    let mut out = String::new();
+    if let Some(comment) = &f.comment {
+        let trimmed = comment.trim();
+        if !trimmed.is_empty() {
+            out.push_str(&format!("    /// {}\n", trimmed));
+        }
+    }
     let ty = crate::types::dbtype_to_rust(&f.ty, f.nullable);
     match mode {
-        RenderMode::Clean => format!("    pub {}: {},\n", f.name, ty),
+        RenderMode::Clean => out + &format!("    pub {}: {},\n", f.name, ty),
         RenderMode::Debug => {
             let null_label = if f.nullable { "NULL" } else { "NOT NULL" };
-            format!("    pub {}: {}, // {}, {}\n", f.name, ty, f.raw_type, null_label)
+            out + &format!("    pub {}: {}, // {}, {}\n", f.name, ty, f.raw_type, null_label)
         }
     }
 }
 
 fn render_field_with_enum_prefix(f: &FieldIR, mode: RenderMode) -> String {
+    let mut out = String::new();
+    if let Some(comment) = &f.comment {
+        let trimmed = comment.trim();
+        if !trimmed.is_empty() {
+            out.push_str(&format!("    /// {}\n", trimmed));
+        }
+    }
     let ty = match &f.ty {
         DbType::Enum(EnumRef { rust_name }) => {
             let base = format!("super::enums::{}", rust_name);
@@ -45,10 +59,10 @@ fn render_field_with_enum_prefix(f: &FieldIR, mode: RenderMode) -> String {
         _ => crate::types::dbtype_to_rust(&f.ty, f.nullable),
     };
     match mode {
-        RenderMode::Clean => format!("    pub {}: {},\n", f.name, ty),
+        RenderMode::Clean => out + &format!("    pub {}: {},\n", f.name, ty),
         RenderMode::Debug => {
             let null_label = if f.nullable { "NULL" } else { "NOT NULL" };
-            format!("    pub {}: {}, // {}, {}\n", f.name, ty, f.raw_type, null_label)
+            out + &format!("    pub {}: {}, // {}, {}\n", f.name, ty, f.raw_type, null_label)
         }
     }
 }
@@ -89,6 +103,12 @@ pub fn generate_struct(table: &TableIR, mode: RenderMode) -> String {
     let mut out = String::new();
     let struct_name = to_struct_name(&table.name);
 
+    if let Some(comment) = &table.comment {
+        let trimmed = comment.trim();
+        if !trimmed.is_empty() {
+            out.push_str(&format!("/// {}\n", trimmed));
+        }
+    }
     out.push_str("#[derive(Debug, Clone)]\n");
     out.push_str(&format!("pub struct {struct_name} {{\n"));
 
@@ -226,6 +246,12 @@ fn generate_struct_file(table: &TableIR, mode: RenderMode) -> String {
     let mut out = String::new();
     let struct_name = to_struct_name(&table.name);
 
+    if let Some(comment) = &table.comment {
+        let trimmed = comment.trim();
+        if !trimmed.is_empty() {
+            out.push_str(&format!("/// {}\n", trimmed));
+        }
+    }
     out.push_str("#[derive(Debug, Clone)]\n");
     out.push_str(&format!("pub struct {struct_name} {{\n"));
 

@@ -47,24 +47,40 @@ fn generates_user_struct() {
 
 #[test]
 fn generates_debug_comments() {
-    let fields = vec![FieldIR {
-        name: "id".to_string(),
-        ty: DbType::Integer,
-        nullable: false,
-        raw_type: "integer".to_string(),
-        comment: None,
-    }];
-
-    let tables = vec![TableIR {
+    let table = TableIR {
         name: "items".to_string(),
-        fields,
+        fields: vec![
+            FieldIR {
+                name: "id".to_string(),
+                ty: DbType::Integer,
+                nullable: false,
+                raw_type: "integer".to_string(),
+                comment: Some("Primary key".into()),
+            },
+            FieldIR {
+                name: "label".to_string(),
+                ty: DbType::String,
+                nullable: true,
+                raw_type: "text".to_string(),
+                comment: None,
+            },
+        ],
         constraints: vec![],
-        comment: None,
-    }];
+        comment: Some(" Represents an inventory item".into()),
+    };
 
-    let output = generate_struct(&tables[0], RenderMode::Debug);
+    let output = generate_struct(&table, RenderMode::Debug);
 
+    // Debug mode comment on id field
     assert!(output.contains("// integer, NOT NULL"));
+    // Doc comment on id field
+    assert!(output.contains("/// Primary key"));
+    // Doc comment on table (leading space trimmed)
+    assert!(output.contains("/// Represents an inventory item"));
+    // Field with no comment — just the debug comment
+    assert!(output.contains("pub label: Option<String>, // text, NULL"));
+    // No stray doc comment on label
+    assert!(!output.contains("/// ///"), "no double doc-comment prefix");
 }
 
 #[test]

@@ -85,19 +85,20 @@ async fn build_schema_mysql(db_name: &str) -> Option<SchemaIR> {
 async fn build_schema_from(
     introspector: impl DatabaseIntrospector,
 ) -> SchemaIR {
-    let table_names = introspector.list_tables().await.expect("list_tables failed");
+    let table_infos = introspector.list_tables_with_info().await.expect("list_tables failed");
     let mut tables = Vec::new();
-    for name in &table_names {
-        let columns = introspector.list_columns(name).await.expect("list_columns failed");
+    for table_info in table_infos {
+        let columns = introspector.list_columns(&table_info.name).await.expect("list_columns failed");
         let fields: Vec<_> = columns
             .iter()
             .map(|c| introspector.column_to_field(c))
             .collect();
-        let constraints = introspector.list_constraints(name).await.expect("list_constraints failed");
+        let constraints = introspector.list_constraints(&table_info.name).await.unwrap();
         tables.push(neutrino_schema::ir::TableIR {
-            name: name.clone(),
+            name: table_info.name.clone(),
             fields,
             constraints,
+            comment: table_info.comment.clone(),
         });
     }
     SchemaIR::from_tables(tables, neutrino_schema::ir::RelationStrategy::Disabled)
@@ -271,7 +272,7 @@ async fn sqlite_common_types() {
     ];
     for &((ref table, ref col), nullable) in text_cols {
         let key = (table.to_string(), col.to_string());
-        let (ty, n) = sqlite_map.get(&key).expect("key not found in sqlite_map");
+        let (ty, n) = sqlite_map.get(&key).unwrap();
         assert_eq!(*n, nullable, "SQLite {table}.{col} nullable mismatch");
         if *col == "public_id" {
             assert_eq!(*ty, DbType::Binary, "SQLite {table}.{col}: expected Binary, got {ty:?}");

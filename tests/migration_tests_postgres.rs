@@ -51,13 +51,13 @@ async fn build_schema(db_suffix: &str) -> Option<neutrino_schema::SchemaIR> {
     use neutrino_schema::introspect::DatabaseIntrospector;
 
     let introspector = setup(db_suffix).await?;
-    let table_names = introspector.list_tables().await.ok()?;
+    let table_infos = introspector.list_tables_with_info().await.ok()?;
     let mut tables = Vec::new();
-    for name in &table_names {
-        let columns = introspector.list_columns(name).await.ok()?;
+    for info in &table_infos {
+        let columns = introspector.list_columns(&info.name).await.ok()?;
         let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
-        let constraints = introspector.list_constraints(name).await.ok()?;
-        tables.push(neutrino_schema::ir::TableIR { name: name.clone(), fields, constraints });
+        let constraints = introspector.list_constraints(&info.name).await.ok()?;
+        tables.push(neutrino_schema::ir::TableIR { name: info.name.to_string(), fields, constraints, comment: info.comment.clone() });
     }
     let schema = neutrino_schema::SchemaIR::from_tables(tables, neutrino_schema::ir::RelationStrategy::Disabled);
     drop(introspector);
@@ -77,7 +77,7 @@ async fn postgres_migration_discovery() {
         eprintln!("Skipping postgres::migration_discovery (DATABASE_URL not set)");
         return;
     };
-    let tables = introspector.list_tables().await.expect("list_tables failed");
+    let tables = introspector.list_tables_with_info().await.expect("list_tables failed");
     assert_eq!(tables.len(), 28, "expected 28 tables");
 
     for name in &[
@@ -90,7 +90,7 @@ async fn postgres_migration_discovery() {
         "security_events", "login_attempts", "account_lockouts", "ip_rate_limits",
         "network_restrictions", "network_restrictions_history", "two_factor_codes",
     ] {
-        assert!(tables.contains(&name.to_string()), "missing table: {name}");
+        assert!(tables.iter().any(|ti| ti.name == *name), "missing table: {name}");
     }
     drop(introspector);
     teardown("discovery").await;

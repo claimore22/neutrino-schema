@@ -11,18 +11,21 @@ fn generates_user_struct() {
             ty: DbType::Integer,
             nullable: false,
             raw_type: "integer".to_string(),
+            comment: None,
         },
         FieldIR {
             name: "email".to_string(),
             ty: DbType::String,
             nullable: false,
             raw_type: "character varying".to_string(),
+            comment: None,
         },
         FieldIR {
             name: "bio".to_string(),
             ty: DbType::String,
             nullable: true,
             raw_type: "text".to_string(),
+            comment: None,
         },
     ];
 
@@ -30,6 +33,7 @@ fn generates_user_struct() {
         name: "users".to_string(),
         fields,
         constraints: vec![],
+        comment: None,
     }];
 
     let schema = SchemaIR::from_tables(tables, RelationStrategy::Disabled);
@@ -48,12 +52,14 @@ fn generates_debug_comments() {
         ty: DbType::Integer,
         nullable: false,
         raw_type: "integer".to_string(),
+        comment: None,
     }];
 
     let tables = vec![TableIR {
         name: "items".to_string(),
         fields,
         constraints: vec![],
+        comment: None,
     }];
 
     let output = generate_struct(&tables[0], RenderMode::Debug);

@@ -89,7 +89,8 @@ async fn mysql_list_tables() {
         eprintln!("MySQL unreachable — skipping mysql_list_tables");
         return;
     };
-    let tables = introspector.list_tables().await.expect("list tables");
+    let table_infos = introspector.list_tables_with_info().await.expect("list tables");
+    let tables: Vec<String> = table_infos.iter().map(|ti| ti.name.clone()).collect();
     assert!(tables.contains(&"users".to_string()));
     assert!(tables.contains(&"posts".to_string()));
     drop(introspector);
@@ -155,13 +156,13 @@ async fn mysql_full_pipeline() {
         eprintln!("MySQL unreachable — skipping mysql_full_pipeline");
         return;
     };
-    let table_names = introspector.list_tables().await.expect("list tables");
+    let table_infos = introspector.list_tables_with_info().await.expect("list tables");
     let mut tables = Vec::new();
-    for name in &table_names {
-        let columns = introspector.list_columns(name).await.expect("list columns");
+    for info in &table_infos {
+        let columns = introspector.list_columns(&info.name).await.expect("list columns");
         let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
-        let constraints = introspector.list_constraints(name).await.expect("list constraints");
-        tables.push(neutrino_schema::ir::TableIR { name: name.clone(), fields, constraints });
+        let constraints = introspector.list_constraints(&info.name).await.expect("list constraints");
+        tables.push(neutrino_schema::ir::TableIR { name: info.name.to_string(), fields, constraints, comment: info.comment.clone() });
     }
     let schema = SchemaIR::from_tables(tables, RelationStrategy::NamingHeuristic);
     assert!(schema.relations.iter().any(|r| r.from_table == "posts"));

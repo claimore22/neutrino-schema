@@ -48,19 +48,20 @@ async fn build_schema() -> neutrino_schema::SchemaIR {
 
     let introspector = neutrino_schema::introspect::SqliteIntrospector::new(pool);
 
-    let table_names = introspector.list_tables().await.expect("list_tables failed");
+    let table_infos = introspector.list_tables_with_info().await.expect("list_tables failed");
     let mut tables = Vec::new();
-    for name in &table_names {
-        let columns = introspector.list_columns(name).await.expect("list_columns failed");
+    for info in &table_infos {
+        let columns = introspector.list_columns(&info.name).await.expect("list_columns failed");
         let fields: Vec<_> = columns
             .iter()
             .map(|c| introspector.column_to_field(c))
             .collect();
-        let constraints = introspector.list_constraints(name).await.expect("list_constraints failed");
+        let constraints = introspector.list_constraints(&info.name).await.expect("list_constraints failed");
         tables.push(neutrino_schema::ir::TableIR {
-            name: name.clone(),
+            name: info.name.to_string(),
             fields,
             constraints,
+            comment: info.comment.clone(),
         });
     }
 
@@ -94,9 +95,10 @@ async fn sqlite_migration_discovery() {
         .expect("execute sqlite migrations");
 
     let introspector = neutrino_schema::introspect::SqliteIntrospector::new(pool);
-    let tables = introspector.list_tables().await.expect("list_tables failed");
+    let table_infos = introspector.list_tables_with_info().await.expect("list_tables failed");
 
-    assert_eq!(tables.len(), 28, "expected 28 tables");
+    assert_eq!(table_infos.len(), 28, "expected 28 tables");
+    let table_names: Vec<&str> = table_infos.iter().map(|ti| ti.name.as_str()).collect();
 
     for name in &[
         "users",
@@ -128,7 +130,7 @@ async fn sqlite_migration_discovery() {
         "network_restrictions_history",
         "two_factor_codes",
     ] {
-        assert!(tables.contains(&name.to_string()), "missing table: {name}");
+        assert!(table_names.contains(name), "missing table: {name}");
     }
 }
 

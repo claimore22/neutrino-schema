@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use sqlx::{PgPool, Row};
 
 use crate::ir::{ConstraintIR, ConstraintKind, EnumIR, EnumVariantIR, FieldIR, MatchType, ReferentialAction};
-use crate::introspect::Column;
+use crate::introspect::{Column, TableInfo};
 use crate::introspect::DatabaseIntrospector;
 use crate::types::{self, PgType};
 use crate::util::naming::to_struct_name;
@@ -35,30 +35,48 @@ impl DatabaseIntrospector for PostgresIntrospector {
             ty: db_ty,
             nullable: col.nullable,
             raw_type: col.data_type.clone(),
+            comment: col.comment.clone(),
         }
     }
-    async fn list_tables(&self) -> anyhow::Result<Vec<String>> {
+    async fn list_tables_with_info(&self) -> anyhow::Result<Vec<TableInfo>> {
         let rows = sqlx::query(
             r#"
-            SELECT table_name
-            FROM information_schema.tables
-            WHERE table_schema = 'public'
-            ORDER BY table_name
+            SELECT t.table_name,
+                pg_catalog.obj_description(c.oid) AS table_comment
+            FROM information_schema.tables t
+            JOIN pg_catalog.pg_class c ON c.relname = t.table_name
+            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+            WHERE t.table_schema = 'public' AND n.nspname = 'public'
+            ORDER BY t.table_name
             "#,
         )
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows
+        let rows: Vec<TableInfo> = rows
             .into_iter()
-            .filter_map(|r| r.get::<Option<String>, _>("table_name"))
-            .collect())
+            .filter_map(|r| r.get::<Option<String>, _>("table_name").map(|name| TableInfo {
+                name,
+                comment: r.get("table_comment"),
+            }))
+            .collect();
+
+        Ok(rows)
     }
 
     async fn list_columns(&self, table: &str) -> anyhow::Result<Vec<Column>> {
         let rows = sqlx::query(
             r#"
-            SELECT column_name, data_type, is_nullable
+            SELECT column_name, data_type, is_nullable,
+            pg_catalog.col_description(
+                (
+                    SELECT c.oid
+                    FROM pg_catalog.pg_class c
+                    JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                    WHERE c.relname = $1 AND n.nspname = 'public'
+                ),
+                ordinal_position::int
+            ) AS column_comment
             FROM information_schema.columns
             WHERE table_schema = 'public' AND table_name = $1
             ORDER BY ordinal_position
@@ -77,6 +95,7 @@ impl DatabaseIntrospector for PostgresIntrospector {
                     column_name: r.get("column_name"),
                     data_type: raw,
                     nullable: r.get::<String, _>("is_nullable") == "YES",
+                    comment: r.get("column_comment"),
                 }
             })
             .collect())

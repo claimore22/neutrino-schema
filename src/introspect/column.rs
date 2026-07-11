@@ -15,4 +15,6 @@ pub struct Column {
     pub data_type: String,
     /// Whether the column allows `NULL` (based on `is_nullable`).
     pub nullable: bool,
+    /// Comment string for the column, if any. 
+    pub comment: Option<String>,
 }

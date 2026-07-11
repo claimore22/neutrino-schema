@@ -10,4 +10,6 @@ pub struct TableIR {
     pub fields: Vec<FieldIR>,
     /// Constraints (PK, FK, UNIQUE, CHECK).
     pub constraints: Vec<ConstraintIR>,
+    /// Optional comment string for the table, if any.
+    pub comment: Option<String>,
 }

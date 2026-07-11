@@ -11,4 +11,6 @@ pub struct FieldIR {
     pub nullable: bool,
     /// Raw SQL type name, only used for debug/CLI display. Never consulted by type pipeline.
     pub raw_type: String,
+    /// Column comment, if any.
+    pub comment: Option<String>,
 }

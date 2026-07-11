@@ -1,9 +1,11 @@
 use clap::Args;
 
+use crate::SchemaIR;
 use crate::cli::url_to_introspector;
 use crate::codegen::{generate_struct, RenderMode};
 use crate::config::GeneratorConfig;
 use crate::ir::RelationStrategy;
+use crate::introspect::{TableInfo};
 
 /// Inspect a database and print generated structs.
 ///
@@ -43,8 +45,9 @@ impl InspectCommand {
         };
 
         if self.all {
-            let table_names = introspector.list_tables().await?;
-            let schema = crate::cli::introspect_schema(
+            let table_infos: Vec<TableInfo> = introspector.list_tables_with_info().await?;
+            let table_names: Vec<String> = table_infos.iter().map(|ti| ti.name.clone()).collect();
+            let schema:SchemaIR = crate::cli::introspect_schema(
                 introspector.as_ref(),
                 &table_names,
                 RelationStrategy::NamingHeuristic,
@@ -76,13 +79,17 @@ impl InspectCommand {
                 name: table_name.clone(),
                 fields,
                 constraints,
+                comment: None,
             };
             print!("{}", generate_struct(&table_ir, mode));
         } else {
-            let tables = introspector.list_tables().await?;
+            let table_infos = introspector.list_tables_with_info().await?;
             println!("Tables:");
-            for t in tables {
-                println!("  - {t}");
+            for ti in table_infos {
+                println!("  - {}", ti.name);
+                if let Some(comment) = &ti.comment {
+                    println!("    {}", comment);
+                }
             }
             println!();
             println!("Usage:");

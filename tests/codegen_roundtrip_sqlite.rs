@@ -44,15 +44,16 @@ async fn generated_models_roundtrip_sqlite() {
         neutrino_schema::introspect::SqliteIntrospector::new(pool);
 
     // ── 2. Introspect ─────────────────────────────────────────────────
-    let table_names = introspector.list_tables().await.expect("list_tables failed");
+    let table_infos = introspector.list_tables_with_info().await.expect("list_tables failed");
     let mut struct_strs = Vec::new();
-    for name in &table_names {
-        let columns = introspector.list_columns(name).await.expect("list_columns failed");
+    for info in &table_infos {
+        let columns = introspector.list_columns(&info.name).await.expect("list_columns failed");
         let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
         let table = neutrino_schema::ir::TableIR {
-            name: name.clone(),
+            name: info.name.to_string(),
             fields,
             constraints: vec![],
+            comment: info.comment.clone(),
         };
         let struct_src = generate_struct(&table, RenderMode::Debug);
         // Post-process: add sqlx::FromRow to derives

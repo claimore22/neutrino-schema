@@ -73,7 +73,7 @@ impl GenerateCommand {
         eprintln!("Inspecting {provider}...");
 
         let table_names = if self.table.is_empty() {
-            introspector.list_tables().await?
+            introspector.list_tables_with_info().await?.iter().map(|ti| ti.name.clone()).collect::<Vec<_>>()
         } else {
             normalize_table_names(&self.table)
         };

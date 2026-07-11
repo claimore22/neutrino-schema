@@ -37,16 +37,17 @@ async fn codegen_compile_sqlite_fixtures() {
         neutrino_schema::introspect::SqliteIntrospector::new(pool);
 
     // ── 2. Introspect ─────────────────────────────────────────────────
-    let table_names = introspector.list_tables().await.unwrap();
+    let table_infos = introspector.list_tables_with_info().await.unwrap();
     let mut tables = Vec::new();
-    for name in &table_names {
-        let columns = introspector.list_columns(name).await.unwrap();
+    for info in &table_infos {
+        let columns = introspector.list_columns(&info.name).await.unwrap();
         let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
-        let constraints = introspector.list_constraints(name).await.unwrap();
+        let constraints = introspector.list_constraints(&info.name).await.unwrap();
         tables.push(neutrino_schema::ir::TableIR {
-            name: name.clone(),
+            name: info.name.to_string(),
             fields,
             constraints,
+            comment: info.comment.clone(),
         });
     }
 

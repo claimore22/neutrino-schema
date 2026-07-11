@@ -1,4 +1,5 @@
 use crate::introspect::Column;
+use crate::introspect::table::TableInfo;
 use crate::ir::{ConstraintIR, EnumIR, FieldIR};
 
 /// Abstraction for database introspection.
@@ -8,9 +9,9 @@ use crate::ir::{ConstraintIR, EnumIR, FieldIR};
 /// `sqlite_master` / `PRAGMA table_info` (SQLite).
 #[async_trait::async_trait]
 pub trait DatabaseIntrospector: Send + Sync {
-    /// List all user-accessible table names (in `public` schema for Postgres,
+    /// List all user-accessible table information (in `public` schema for supported databases,
     /// excluding internal `sqlite_%` tables for SQLite).
-    async fn list_tables(&self) -> anyhow::Result<Vec<String>>;
+    async fn list_tables_with_info(&self) -> anyhow::Result<Vec<TableInfo>>;
     /// List all columns for a given table, in ordinal position order.
     async fn list_columns(&self, table: &str) -> anyhow::Result<Vec<Column>>;
     /// Convert an introspected [`Column`] into a [`FieldIR`] for the IR pipeline.

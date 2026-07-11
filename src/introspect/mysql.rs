@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
+use sqlx::ColumnOrigin::Table;
 use sqlx::{MySqlPool, Row};
 
 use crate::introspect::parse_referential_action;
+use crate::introspect::table::TableInfo;
 use crate::ir::{ConstraintIR, ConstraintKind, EnumIR, EnumVariantIR, FieldIR};
 use crate::introspect::{parse_mysql_enum, Column, DatabaseIntrospector};
 use crate::types::{self, MysqlType};
@@ -34,23 +36,35 @@ impl DatabaseIntrospector for MysqlIntrospector {
             ty: db_ty,
             nullable: col.nullable,
             raw_type: col.data_type.clone(),
+            comment: col.comment.clone(),
         }
     }
 
-    async fn list_tables(&self) -> anyhow::Result<Vec<String>> {
+    async fn list_tables_with_info(&self) -> anyhow::Result<Vec<TableInfo>> {
         let rows = sqlx::query(
             r#"
-            SELECT TABLE_NAME AS `table_name`
-            FROM information_schema.tables
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_TYPE = 'BASE TABLE'
-            ORDER BY TABLE_NAME
+                SELECT TABLE_NAME AS table_name,
+                    TABLE_COMMENT AS table_comment
+                FROM information_schema.tables
+                WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_TYPE = 'BASE TABLE'
+                ORDER BY TABLE_NAME
             "#,
         )
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|r| r.get("table_name")).collect())
+
+        let rows: Vec<TableInfo> = rows
+            .into_iter()
+            .map(|r| TableInfo {
+                name: r.get("table_name"),
+                comment: r.get("table_comment"),
+            })
+            .collect();
+    
+
+        Ok(rows)
     }
 
     async fn list_columns(&self, table: &str) -> anyhow::Result<Vec<Column>> {
@@ -58,7 +72,8 @@ impl DatabaseIntrospector for MysqlIntrospector {
             r#"
             SELECT COLUMN_NAME  AS `column_name`,
                    DATA_TYPE    AS `data_type`,
-                   IS_NULLABLE  AS `is_nullable`
+                   IS_NULLABLE  AS `is_nullable`,
+                   COLUMN_COMMENT AS `column_comment`
             FROM information_schema.columns
             WHERE TABLE_SCHEMA = DATABASE()
               AND TABLE_NAME = ?
@@ -78,6 +93,7 @@ impl DatabaseIntrospector for MysqlIntrospector {
                     column_name: r.get("column_name"),
                     data_type: raw,
                     nullable: r.get::<String, _>("is_nullable") == "YES",
+                    comment: r.get("column_comment"),
                 }
             })
             .collect())

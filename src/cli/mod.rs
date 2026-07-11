@@ -29,6 +29,7 @@ pub(crate) async fn introspect_tables(
             name: name.clone(),
             fields,
             constraints,
+            comment: None,
         });
     }
     Ok(tables)

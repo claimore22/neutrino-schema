@@ -1,9 +1,8 @@
 use std::collections::HashMap;
-
 use sqlx::{Row, SqlitePool};
 
 use crate::ir::{ConstraintIR, ConstraintKind, FieldIR, ReferentialAction};
-use crate::introspect::Column;
+use crate::introspect::{Column, TableInfo};
 use crate::types;
 
 /// SQLite implementation of [`DatabaseIntrospector`](crate::introspect::DatabaseIntrospector).
@@ -31,9 +30,10 @@ impl super::DatabaseIntrospector for SqliteIntrospector {
             ty: db_ty,
             nullable: col.nullable,
             raw_type: col.data_type.clone(),
+            comment: col.comment.clone(),
         }
     }
-    async fn list_tables(&self) -> anyhow::Result<Vec<String>> {
+    async fn list_tables_with_info(&self) -> anyhow::Result<Vec<TableInfo>> {
         let rows = sqlx::query(
             r#"
             SELECT name
@@ -46,9 +46,13 @@ impl super::DatabaseIntrospector for SqliteIntrospector {
         .fetch_all(&self.pool)
         .await?;
 
+        
         Ok(rows
             .into_iter()
-            .filter_map(|r| r.get::<Option<String>, _>("name"))
+            .filter_map(|r| r.get::<Option<String>, _>("name").map(|name| TableInfo {
+                name,
+                comment: None,// SQLite does not have a standard way to store table comments
+            }))
             .collect())
     }
 
@@ -67,6 +71,7 @@ impl super::DatabaseIntrospector for SqliteIntrospector {
                     column_name: r.get("name"),
                     data_type: raw.unwrap_or_else(|| "TEXT".to_string()),
                     nullable: r.get::<i32, _>("notnull") == 0 && r.get::<i32, _>("pk") == 0,
+                    comment: None, // SQLite does not have a standard way to store column comments
                 }
             })
             .collect())

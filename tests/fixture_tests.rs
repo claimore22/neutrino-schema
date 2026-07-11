@@ -41,9 +41,9 @@ mod sqlite {
     #[tokio::test]
     async fn tables_exist() {
         let introspector = setup().await;
-        let tables = introspector.list_tables().await.expect("list_tables failed");
+        let table_infos = introspector.list_tables_with_info().await.expect("list_tables failed");
         for name in &["users", "posts", "tags", "post_tags", "profiles", "all_types"] {
-            assert!(tables.contains(&name.to_string()), "missing table: {name}");
+            assert!(table_infos.iter().any(|ti| ti.name == *name), "missing table: {name}");
         }
     }
 
@@ -196,16 +196,17 @@ mod sqlite {
     #[tokio::test]
     async fn fk_relations_and_table_accessor() {
         let introspector = setup().await;
-        let table_names = introspector.list_tables().await.expect("list_tables failed");
+        let table_infos = introspector.list_tables_with_info().await.expect("list_tables failed");
         let mut tables = Vec::new();
-        for name in &table_names {
-            let columns = introspector.list_columns(name).await.expect("list_columns failed");
+        for table_info in table_infos {
+            let columns = introspector.list_columns(&table_info.name).await.expect("list_columns failed");
             let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
-            let constraints = introspector.list_constraints(name).await.expect("list_constraints failed");
+            let constraints = introspector.list_constraints(&table_info.name).await.expect("list_constraints failed");
             tables.push(neutrino_schema::ir::TableIR {
-                name: name.clone(),
+                name: table_info.name.clone(),
                 fields,
                 constraints,
+                comment: table_info.comment.clone(),
             });
         }
         let schema = SchemaIR::from_tables(tables, RelationStrategy::NamingHeuristic);
@@ -280,9 +281,9 @@ mod postgres {
             eprintln!("Skipping postgres::tables_exist (DATABASE_URL not set)");
             return;
         };
-        let tables = introspector.list_tables().await.expect("list_tables failed");
-        for name in &["users", "posts", "tags", "post_tags", "profiles", "all_types"] {
-            assert!(tables.contains(&name.to_string()), "missing table: {name}");
+        let tables = introspector.list_tables_with_info().await.expect("list_tables failed");
+        for table_info in tables {
+            assert!(["users", "posts", "tags", "post_tags", "profiles", "all_types"].contains(&table_info.name.as_str()), "missing table: {}", table_info.name);
         }
         drop(introspector);
         teardown("ns_fixture_pg_1").await;
@@ -488,16 +489,17 @@ mod postgres {
             eprintln!("Skipping postgres::fk_relations (DATABASE_URL not set)");
             return;
         };
-        let table_names = introspector.list_tables().await.expect("list_tables failed");
+        let table_infos = introspector.list_tables_with_info().await.expect("list_tables failed");
         let mut tables = Vec::new();
-        for name in &table_names {
-            let columns = introspector.list_columns(name).await.expect("list_columns failed");
+        for table_info in table_infos {
+            let columns = introspector.list_columns(&table_info.name).await.expect("list_columns failed");
             let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
-            let constraints = introspector.list_constraints(name).await.expect("list_constraints failed");
+            let constraints = introspector.list_constraints(&table_info.name).await.expect("list_constraints failed");
             tables.push(neutrino_schema::ir::TableIR {
-                name: name.clone(),
+                name: table_info.name.clone(),
                 fields,
                 constraints,
+                comment: table_info.comment.clone(),    
             });
         }
         let schema = SchemaIR::from_tables(tables, RelationStrategy::NamingHeuristic);
@@ -579,9 +581,9 @@ mod mysql {
             eprintln!("Skipping mysql::tables_exist (MySQL unreachable)");
             return;
         };
-        let tables = introspector.list_tables().await.expect("list_tables failed");
-        for name in &["users", "posts", "tags", "post_tags", "profiles", "all_types"] {
-            assert!(tables.contains(&name.to_string()), "missing table: {name}");
+        let tables = introspector.list_tables_with_info().await.expect("list_tables failed");
+        for table_info in tables {
+            assert!(["users", "posts", "tags", "post_tags", "profiles", "all_types"].contains(&table_info.name.as_str()), "missing table: {}", table_info.name);
         }
         drop(introspector);
         teardown("ns_fixture_my_1").await;
@@ -739,16 +741,17 @@ mod mysql {
             eprintln!("Skipping mysql::fk_relations (MySQL unreachable)");
             return;
         };
-        let table_names = introspector.list_tables().await.expect("list_tables failed");
+        let table_infos = introspector.list_tables_with_info().await.expect("list_tables failed");
         let mut tables = Vec::new();
-        for name in &table_names {
-            let columns = introspector.list_columns(name).await.expect("list_columns failed");
+        for table_info in table_infos {
+            let columns = introspector.list_columns(&table_info.name).await.expect("list_columns failed");
             let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
-            let constraints = introspector.list_constraints(name).await.expect("list_constraints failed");
+            let constraints = introspector.list_constraints(&table_info.name).await.expect("list_constraints failed");
             tables.push(neutrino_schema::ir::TableIR {
-                name: name.clone(),
+                name: table_info.name.clone(),
                 fields,
                 constraints,
+                comment: table_info.comment.clone(),
             });
         }
         let schema = SchemaIR::from_tables(tables, RelationStrategy::NamingHeuristic);

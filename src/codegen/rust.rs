@@ -75,8 +75,10 @@ fn render_field_with_enum_prefix(f: &FieldIR, mode: RenderMode) -> String {
 ///         ty: DbType::String,
 ///         nullable: false,
 ///         raw_type: "Varchar".into(),
+///         comment: None,
 ///     }],
 ///     constraints: vec![],
+///     comment: None,
 /// };
 ///
 /// let out = generate_struct(&table, RenderMode::Clean);
@@ -283,11 +285,13 @@ mod tests {
             ty: DbType::Enum(EnumRef { rust_name: enm.rust_name.clone() }),
             nullable: false,
             raw_type: "mood".into(),
+            comment: None,
         };
         let table = TableIR {
             name: "users".into(),
             fields: vec![field],
             constraints: vec![],
+            comment: None,
         };
         let result = generate_struct_file(&table, RenderMode::Clean);
         assert!(result.contains("super::enums::Mood"));
@@ -302,11 +306,13 @@ mod tests {
             ty: DbType::Enum(EnumRef { rust_name: enm.rust_name.clone() }),
             nullable: true,
             raw_type: "mood".into(),
+            comment: None,
         };
         let table = TableIR {
             name: "users".into(),
             fields: vec![field],
             constraints: vec![],
+            comment: Some(" Users table".into()),
         };
         let result = generate_struct_file(&table, RenderMode::Clean);
         assert!(result.contains("Option<super::enums::Mood>"));
@@ -320,11 +326,13 @@ mod tests {
             ty: DbType::Enum(EnumRef { rust_name: enm.rust_name.clone() }),
             nullable: false,
             raw_type: "mood".into(),
+            comment: None,
         };
         let table = TableIR {
             name: "users".into(),
             fields: vec![field],
             constraints: vec![],
+            comment: None,
         };
         let result = generate_struct(&table, RenderMode::Clean);
         assert!(result.contains("Mood"));

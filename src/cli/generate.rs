@@ -72,15 +72,19 @@ impl GenerateCommand {
         eprintln!("Using database \"{}\"", self.database);
         eprintln!("Inspecting {provider}...");
 
-        let table_names = if self.table.is_empty() {
-            introspector.list_tables_with_info().await?.iter().map(|ti| ti.name.clone()).collect::<Vec<_>>()
+        let table_infos = if self.table.is_empty() {
+            introspector.list_tables_with_info().await?
         } else {
-            normalize_table_names(&self.table)
+            let names = normalize_table_names(&self.table);
+            names
+                .into_iter()
+                .map(|name| crate::introspect::TableInfo { name, comment: None })
+                .collect::<Vec<_>>()
         };
 
         let schema = crate::cli::introspect_schema(
             introspector.as_ref(),
-            &table_names,
+            &table_infos,
             RelationStrategy::NamingHeuristic,
         )
         .await?;

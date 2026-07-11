@@ -14,22 +14,24 @@ use generate::GenerateCommand;
 use init::InitCommand;
 use inspect::InspectCommand;
 
-/// Collect all columns from the given table names and convert to [`FieldIR`]
-/// using the provided introspector.
+/// Collect all columns from the given [`TableInfo`] entries and convert to [`FieldIR`].
+///
+/// The table comment from [`TableInfo::comment`] is propagated into [`TableIR::comment`]
+/// so that codegen can emit it as a `///` doc comment on the generated struct.
 pub(crate) async fn introspect_tables(
     introspector: &dyn crate::introspect::DatabaseIntrospector,
-    table_names: &[String],
+    table_infos: &[crate::introspect::TableInfo],
 ) -> anyhow::Result<Vec<crate::ir::TableIR>> {
     let mut tables = Vec::new();
-    for name in table_names {
-        let columns = introspector.list_columns(name).await?;
+    for info in table_infos {
+        let columns = introspector.list_columns(&info.name).await?;
         let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
-        let constraints = introspector.list_constraints(name).await?;
+        let constraints = introspector.list_constraints(&info.name).await?;
         tables.push(crate::ir::TableIR {
-            name: name.clone(),
+            name: info.name.clone(),
             fields,
             constraints,
-            comment: None,
+            comment: info.comment.clone(),
         });
     }
     Ok(tables)
@@ -43,10 +45,10 @@ pub(crate) async fn introspect_tables(
 /// to [`DbType::Enum`].
 pub(crate) async fn introspect_schema(
     introspector: &dyn crate::introspect::DatabaseIntrospector,
-    table_names: &[String],
+    table_infos: &[crate::introspect::TableInfo],
     strategy: crate::ir::RelationStrategy,
 ) -> anyhow::Result<crate::ir::SchemaIR> {
-    let tables = introspect_tables(introspector, table_names).await?;
+    let tables = introspect_tables(introspector, table_infos).await?;
     let enums = introspector.introspect_enums().await?;
 
     // Build a lookup from raw-type -> EnumIR for enum-name resolution.

@@ -46,10 +46,9 @@ impl InspectCommand {
 
         if self.all {
             let table_infos: Vec<TableInfo> = introspector.list_tables_with_info().await?;
-            let table_names: Vec<String> = table_infos.iter().map(|ti| ti.name.clone()).collect();
-            let schema:SchemaIR = crate::cli::introspect_schema(
+            let schema: SchemaIR = crate::cli::introspect_schema(
                 introspector.as_ref(),
-                &table_names,
+                &table_infos,
                 RelationStrategy::NamingHeuristic,
             )
             .await?;
@@ -75,11 +74,14 @@ impl InspectCommand {
             let columns = introspector.list_columns(table_name).await?;
             let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
             let constraints = introspector.list_constraints(table_name).await?;
+            // Single table: need to look up the comment separately
+            let all_infos = introspector.list_tables_with_info().await?;
+            let comment = all_infos.iter().find(|ti| ti.name == *table_name).and_then(|ti| ti.comment.clone());
             let table_ir = crate::ir::TableIR {
                 name: table_name.clone(),
                 fields,
                 constraints,
-                comment: None,
+                comment,
             };
             print!("{}", generate_struct(&table_ir, mode));
         } else {

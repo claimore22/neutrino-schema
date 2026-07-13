@@ -259,7 +259,7 @@ impl DatabaseIntrospector for MysqlIntrospector {
         }
 
         // Check constraints (MySQL 8.0.16+)
-        let ck_rows = sqlx::query(
+        let ck_rows = match sqlx::query(
             r#"
             SELECT CONSTRAINT_NAME, CHECK_CLAUSE
             FROM information_schema.CHECK_CONSTRAINTS
@@ -267,7 +267,15 @@ impl DatabaseIntrospector for MysqlIntrospector {
             "#,
         )
         .fetch_all(&self.pool)
-        .await?;
+        .await
+        {
+            Ok(rows) => rows,
+            // MySQL < 8.0.16 / MariaDB < 10.2.1: table doesn't exist — skip gracefully
+            Err(e) if is_check_constraints_not_found(&e) => {
+                return Ok(constraints);
+            }
+            Err(e) => return Err(e.into()),
+        };
 
         for r in ck_rows {
             // CHECK_CONSTRAINTS doesn't directly link to a table in MySQL.
@@ -290,4 +298,16 @@ struct FkBuilder {
     ref_columns: Vec<String>,
     update_rule: Option<String>,
     delete_rule: Option<String>,
+}
+
+/// Check whether an sqlx error indicates `information_schema.CHECK_CONSTRAINTS`
+/// is missing in the connected MySQL/MariaDB server (< 8.0.16 / < 10.2.1).
+fn is_check_constraints_not_found(e: &sqlx::Error) -> bool {
+    if let sqlx::Error::Database(db_err) = e {
+        // MySQL error 1146 (ER_NO_SUCH_TABLE): Table doesn't exist
+        if let Some(code) = db_err.code() {
+            return code.as_ref() == "1146";
+        }
+    }
+    false
 }

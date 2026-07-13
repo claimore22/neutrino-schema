@@ -31,9 +31,11 @@ pub struct Users {
 
 ## Supported databases
 
-- PostgreSQL
-- MySQL / MariaDB
-- SQLite
+| Database | Minimum version | Notes |
+|---|---|---|
+| PostgreSQL | 8.1 (recommended: 14+) | Enum introspection requires 8.1+ |
+| MySQL | 8.0.16 (5.7+ partial) | Full support on 8.0.16+. On 5.7, CHECK constraint introspection is not available. MariaDB 10.2.1+ (recommended: 11.0+) |
+| SQLite | 3.8.0 (recommended: 3.35+) | sqlx bundles its own libsqlite3 3.45+ so this is effectively always satisfied |
 
 ## Overview
 

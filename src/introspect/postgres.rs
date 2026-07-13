@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use sqlx::{PgPool, Row};
 
-use crate::ir::{ConstraintIR, ConstraintKind, EnumIR, EnumVariantIR, FieldIR, IndexEntryIR, IndexIR, IndexKind, MatchType, ReferentialAction};
-use crate::introspect::{Column, TableInfo};
+use crate::ir::{ConstraintIR, ConstraintKind, EnumIR, EnumVariantIR, FieldIR, IndexEntryIR, IndexIR, IndexKind, MatchType};
+use crate::introspect::{parse_referential_action, Column, TableInfo};
 use crate::introspect::DatabaseIntrospector;
 use crate::types::{self, PgType};
 use crate::util::naming::to_struct_name;
@@ -67,7 +67,7 @@ impl DatabaseIntrospector for PostgresIntrospector {
     async fn list_columns(&self, table: &str) -> anyhow::Result<Vec<Column>> {
         let rows = sqlx::query(
             r#"
-            SELECT column_name, data_type, is_nullable,
+            SELECT column_name, data_type, udt_name, is_nullable,
             pg_catalog.col_description(
                 (
                     SELECT c.oid
@@ -89,11 +89,19 @@ impl DatabaseIntrospector for PostgresIntrospector {
         Ok(rows
             .into_iter()
             .map(|r| {
-                let raw: String = r.get("data_type");
+                let raw_data_type: String = r.get("data_type");
+                let udt_name: String = r.get("udt_name");
+                // PostgreSQL reports enums as data_type = 'USER-DEFINED' and
+                // arrays as data_type = 'ARRAY'. Use udt_name for these.
+                let data_type = if raw_data_type == "USER-DEFINED" || raw_data_type == "ARRAY" {
+                    udt_name
+                } else {
+                    raw_data_type
+                };
                 Column {
                     table_name: table.to_string(),
                     column_name: r.get("column_name"),
-                    data_type: raw,
+                    data_type,
                     nullable: r.get::<String, _>("is_nullable") == "YES",
                     comment: r.get("column_comment"),
                 }
@@ -433,15 +441,5 @@ impl ConstraintBuilder {
             _ => return None,
         };
         Some(ConstraintIR { name: self.name, kind })
-    }
-}
-
-pub(crate) fn parse_referential_action(s: Option<&str>) -> ReferentialAction {
-    match s {
-        Some("CASCADE") => ReferentialAction::Cascade,
-        Some("SET NULL") => ReferentialAction::SetNull,
-        Some("SET DEFAULT") => ReferentialAction::SetDefault,
-        Some("RESTRICT") => ReferentialAction::Restrict,
-        _ => ReferentialAction::NoAction,
     }
 }

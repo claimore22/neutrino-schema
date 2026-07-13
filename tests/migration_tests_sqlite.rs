@@ -57,12 +57,13 @@ async fn build_schema() -> neutrino_schema::SchemaIR {
             .map(|c| introspector.column_to_field(c))
             .collect();
         let constraints = introspector.list_constraints(&info.name).await.expect("list_constraints failed");
+        let indexes = introspector.list_indexes(&info.name).await.expect("list_indexes failed");
         tables.push(neutrino_schema::ir::TableIR {
             name: info.name.to_string(),
             fields,
             constraints,
+            indexes,
             comment: info.comment.clone(),
-            indexes: vec![],
         });
     }
 
@@ -307,14 +308,10 @@ async fn sqlite_migration_constraints() {
 
     // Unique constraints: count across all tables.
     //
-    // SQLite index names are unique per **database**, not per table. The migration
-    // files use generic names like `idx_public_id` and `idx_expires_at` that collide
-    // across tables, so only the first alphabetically succeeds; later duplicates
-    // are silently skipped by IF NOT EXISTS. This is a migration-design concern,
-    // not a neutrino-schema bug — we report what SQLite actually stores.
-    //
-    // The query uses `"unique" = 1 AND origin != 'pk'` to capture both inline
-    // UNIQUE constraints (origin='u') and CREATE UNIQUE INDEX entries (origin='c').
+    // The SQLite refactor splits logical UNIQUE constraints (origin='u') from
+    // physical unique indexes (origin='c'). Only inline UNIQUE in CREATE TABLE
+    // (origin='u') is reported as ConstraintIR::Unique. CREATE UNIQUE INDEX
+    // entries are reported as physical indexes via list_indexes().
     let mut unique_count = 0;
     for table in &schema.tables {
         for c in &table.constraints {
@@ -323,7 +320,20 @@ async fn sqlite_migration_constraints() {
             }
         }
     }
-    assert_eq!(unique_count, 17, "expected 17 unique constraints, got {}", unique_count);
+    assert_eq!(unique_count, 4, "expected 4 logical UNIQUE constraints, got {}", unique_count);
+
+    // Physical unique indexes — verify a sample via list_indexes data.
+    // These are CREATE UNIQUE INDEX entries that moved from ConstraintIR to IndexIR.
+    for table in &schema.tables {
+        for idx in &table.indexes {
+            // Every unique index should have at least one entry
+            assert!(!idx.entries.is_empty(), "index {} on {} has no entries", idx.name, table.name);
+        }
+    }
+    // Roles has an inline UNIQUE on name — verify both constraint and index capture it.
+    let roles = schema.table("roles").expect("roles table");
+    assert!(roles.constraints.iter().any(|c| matches!(&c.kind, ConstraintKind::Unique { columns } if columns == &vec!["name"])));
+    assert!(roles.indexes.iter().any(|i| i.unique), "roles should have a unique index for name");
 }
 
 #[cfg(feature = "sqlite")]

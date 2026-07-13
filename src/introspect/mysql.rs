@@ -2,10 +2,9 @@ use std::collections::HashMap;
 
 use sqlx::{MySqlPool, Row};
 
-use crate::introspect::parse_referential_action;
 use crate::introspect::table::TableInfo;
 use crate::ir::{ConstraintIR, ConstraintKind, EnumIR, EnumVariantIR, FieldIR, IndexEntryIR, IndexIR, IndexKind};
-use crate::introspect::{parse_mysql_enum, Column, DatabaseIntrospector};
+use crate::introspect::{parse_mysql_enum, parse_referential_action, Column, DatabaseIntrospector};
 use crate::types::{self, MysqlType};
 use crate::util::naming::{enum_variant_name, to_struct_name};
 
@@ -261,11 +260,18 @@ impl DatabaseIntrospector for MysqlIntrospector {
         // Check constraints (MySQL 8.0.16+)
         let ck_rows = match sqlx::query(
             r#"
-            SELECT CONSTRAINT_NAME, CHECK_CLAUSE
-            FROM information_schema.CHECK_CONSTRAINTS
-            WHERE CONSTRAINT_SCHEMA = DATABASE()
+            SELECT cc.CONSTRAINT_NAME, cc.CHECK_CLAUSE
+            FROM information_schema.CHECK_CONSTRAINTS cc
+            JOIN information_schema.TABLE_CONSTRAINTS tc
+                ON cc.CONSTRAINT_CATALOG = tc.CONSTRAINT_CATALOG
+                AND cc.CONSTRAINT_SCHEMA = tc.CONSTRAINT_SCHEMA
+                AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
+            WHERE cc.CONSTRAINT_SCHEMA = DATABASE()
+              AND tc.TABLE_NAME = ?
+              AND tc.CONSTRAINT_TYPE = 'CHECK'
             "#,
         )
+        .bind(table)
         .fetch_all(&self.pool)
         .await
         {
@@ -278,8 +284,6 @@ impl DatabaseIntrospector for MysqlIntrospector {
         };
 
         for r in ck_rows {
-            // CHECK_CONSTRAINTS doesn't directly link to a table in MySQL.
-            // Match by constraint name prefix or skip.
             let ck_name: String = r.get("CONSTRAINT_NAME");
             let clause: String = r.get("CHECK_CLAUSE");
             constraints.push(ConstraintIR {

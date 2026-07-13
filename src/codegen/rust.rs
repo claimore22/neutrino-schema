@@ -86,6 +86,30 @@ fn render_field_with_enum_prefix(f: &FieldIR, mode: RenderMode) -> String {
     }
 }
 
+/// Render a `pub const` holding the primary-key column names for a table.
+///
+/// Returns an empty string if the table has no primary key constraint.
+///
+/// # Example
+///
+/// For a table named `post_tags` with a composite PK on `(post_id, tag_id)`:
+///
+/// ```ignore
+/// pub const POST_TAGS_PRIMARY_KEY: &[&str] = &["post_id", "tag_id"];
+/// ```
+fn render_primary_key_metadata(table: &TableIR) -> String {
+    let Some(pk) = table.primary_key() else {
+        return String::new();
+    };
+    let crate::ir::ConstraintKind::PrimaryKey { columns } = &pk.kind else {
+        return String::new();
+    };
+    let const_name = format!("{}_PRIMARY_KEY", table.name.to_uppercase());
+    let cols: Vec<String> = columns.iter().map(|c| format!("\"{c}\"")).collect();
+    let cols_joined = cols.join(", ");
+    format!("\npub const {const_name}: &[&str] = &[{cols_joined}];\n")
+}
+
 /// Render a single [`TableIR`] as a Rust struct definition.
 ///
 /// The struct is `#[derive(Debug, Clone)]` and all fields are `pub`.
@@ -139,6 +163,7 @@ pub fn generate_struct(table: &TableIR, mode: RenderMode) -> String {
     }
 
     out.push_str("}\n");
+    out.push_str(&render_primary_key_metadata(table));
     out
 }
 
@@ -285,12 +310,14 @@ fn generate_struct_file(table: &TableIR, mode: RenderMode) -> String {
     }
 
     out.push_str("}\n");
+    out.push_str(&render_primary_key_metadata(table));
     out
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ir::{ConstraintIR, ConstraintKind};
 
     #[test]
     fn generate_enum_defs_empty() {
@@ -338,6 +365,78 @@ mod tests {
         let result = generate_enum_defs(&enums);
         assert!(result.contains("NeedsReview,"));
         assert!(result.contains("InProgress,"));
+    }
+
+    #[test]
+    fn pk_metadata_single_column() {
+        let table = TableIR {
+            name: "users".into(),
+            fields: vec![FieldIR {
+                name: "id".into(),
+                ty: DbType::Integer,
+                nullable: false,
+                raw_type: "INTEGER".into(),
+                comment: None,
+            }],
+            constraints: vec![ConstraintIR {
+                name: "users_pkey".into(),
+                kind: ConstraintKind::PrimaryKey {
+                    columns: vec!["id".into()],
+                },
+            }],
+            comment: None,
+            indexes: vec![],
+        };
+        let out = generate_struct(&table, RenderMode::Clean);
+        assert!(out.contains("pub const USERS_PRIMARY_KEY: &[&str] = &[\"id\"];"));
+    }
+
+    #[test]
+    fn pk_metadata_composite() {
+        let table = TableIR {
+            name: "post_tags".into(),
+            fields: vec![
+                FieldIR {
+                    name: "post_id".into(),
+                    ty: DbType::Integer,
+                    nullable: false,
+                    raw_type: "INTEGER".into(),
+                    comment: None,
+                },
+                FieldIR {
+                    name: "tag_id".into(),
+                    ty: DbType::Integer,
+                    nullable: false,
+                    raw_type: "INTEGER".into(),
+                    comment: None,
+                },
+            ],
+            constraints: vec![ConstraintIR {
+                name: "post_tags_pkey".into(),
+                kind: ConstraintKind::PrimaryKey {
+                    columns: vec!["post_id".into(), "tag_id".into()],
+                },
+            }],
+            comment: None,
+            indexes: vec![],
+        };
+        let out = generate_struct(&table, RenderMode::Clean);
+        assert!(
+            out.contains("pub const POST_TAGS_PRIMARY_KEY: &[&str] = &[\"post_id\", \"tag_id\"];")
+        );
+    }
+
+    #[test]
+    fn pk_metadata_none_when_no_constraint() {
+        let table = TableIR {
+            name: "users".into(),
+            fields: vec![],
+            constraints: vec![],
+            comment: None,
+            indexes: vec![],
+        };
+        let out = generate_struct(&table, RenderMode::Clean);
+        assert!(!out.contains("PRIMARY_KEY"));
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use crate::ir::RelationSource;
+use crate::ir::RelationOrigin;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ConstraintIR {
@@ -51,17 +51,16 @@ impl ConstraintIR {
                 referenced_table,
                 referenced_columns,
                 ..
-            } => columns
-                .iter()
-                .zip(referenced_columns.iter())
-                .map(|(from_col, to_col)| super::RelationIR {
+            } => {
+                // One FK constraint = one RelationIR (supports composite FKs)
+                vec![super::RelationIR {
                     from_table: from_table.to_string(),
-                    from_field: from_col.clone(),
+                    from_columns: columns.clone(),
                     to_table: referenced_table.clone(),
-                    to_field: to_col.clone(),
-                    source: RelationSource::ForeignKey(self.name.clone()),
-                })
-                .collect(),
+                    to_columns: referenced_columns.clone(),
+                    origin: RelationOrigin::ForeignKey,
+                }]
+            }
             _ => Vec::new(),
         }
     }

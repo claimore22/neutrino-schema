@@ -195,22 +195,20 @@ async fn sqlite_full_pipeline() {
     let fk_rel = schema
         .relations
         .iter()
-        .find(|r| matches!(r.source, neutrino_schema::ir::RelationSource::ForeignKey(_)));
+        .find(|r| matches!(r.origin, neutrino_schema::ir::RelationOrigin::ForeignKey));
     assert!(fk_rel.is_some(), "FK-derived relation should exist");
     if let Some(r) = fk_rel {
-        assert_eq!(r.from_field, "user_id");
+        assert_eq!(r.from_columns, vec!["user_id"]);
         assert_eq!(r.to_table, "users");
-        assert_eq!(r.to_field, "id");
+        assert_eq!(r.to_columns, vec!["id"]);
     }
 
     // Heuristic relation for the same FK pair should be suppressed
     // (FK metadata is authoritative; naming heuristic only fills gaps).
-    let heuristic_rel = schema.relations.iter().find(|r| {
-        matches!(
-            r.source,
-            neutrino_schema::ir::RelationSource::NamingHeuristic
-        )
-    });
+    let heuristic_rel = schema
+        .relations
+        .iter()
+        .find(|r| matches!(r.origin, neutrino_schema::ir::RelationOrigin::Inferred));
     assert!(
         heuristic_rel.is_none(),
         "heuristic relation should NOT exist when FK already covers posts.user_id → users.id"

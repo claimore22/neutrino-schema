@@ -346,7 +346,8 @@ mod sqlite {
         let fk = schema.relations.iter().find(|r| r.from_table == "posts");
         assert!(fk.is_some());
         assert_eq!(
-            fk.expect("FK relation from posts should exist").from_field,
+            fk.expect("FK relation from posts should exist")
+                .from_columns[0],
             "user_id"
         );
 
@@ -909,7 +910,8 @@ mod postgres {
         let fk = schema.relations.iter().find(|r| r.from_table == "posts");
         assert!(fk.is_some(), "FK relation from posts should exist");
         assert_eq!(
-            fk.expect("FK relation from posts should exist").from_field,
+            fk.expect("FK relation from posts should exist")
+                .from_columns[0],
             "user_id"
         );
 
@@ -1426,7 +1428,8 @@ mod mysql {
         let fk = schema.relations.iter().find(|r| r.from_table == "posts");
         assert!(fk.is_some(), "FK relation from posts should exist");
         assert_eq!(
-            fk.expect("FK relation from posts should exist").from_field,
+            fk.expect("FK relation from posts should exist")
+                .from_columns[0],
             "user_id"
         );
 

@@ -131,9 +131,11 @@ impl GenerateCommand {
         if !schema.relations.is_empty() {
             eprintln!("  Relations: {} (naming heuristic)", schema.relations.len());
             for r in &schema.relations {
+                let from_cols = r.from_columns.join(", ");
+                let to_cols = r.to_columns.join(", ");
                 eprintln!(
-                    "    {}.{} → {}.{}",
-                    r.from_table, r.from_field, r.to_table, r.to_field
+                    "    {}.({}) → {}.({})",
+                    r.from_table, from_cols, r.to_table, to_cols
                 );
             }
         }

@@ -79,7 +79,7 @@ pub use codegen::{
 };
 pub use ir::{
     ConstraintIR, ConstraintKind, EnumIR, EnumVariantIR, FieldIR, IndexEntryIR, IndexIR, IndexKind,
-    MatchType, ReferentialAction, RelationIR, RelationSource, RelationStrategy, SchemaError,
+    MatchType, ReferentialAction, RelationIR, RelationOrigin, RelationStrategy, SchemaError,
     SchemaIR, TableIR,
 };
 pub use types::{

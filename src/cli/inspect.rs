@@ -66,13 +66,15 @@ impl InspectCommand {
             );
             eprintln!("Relations: {}", schema.relations.len());
             for r in &schema.relations {
-                let source = match &r.source {
-                    crate::ir::RelationSource::ForeignKey(name) => format!(" (FK: {name})"),
-                    crate::ir::RelationSource::NamingHeuristic => " (heuristic)".to_string(),
+                let source = match &r.origin {
+                    crate::ir::RelationOrigin::ForeignKey => " (FK)".to_string(),
+                    crate::ir::RelationOrigin::Inferred => " (heuristic)".to_string(),
                 };
+                let from_cols = r.from_columns.join(", ");
+                let to_cols = r.to_columns.join(", ");
                 eprintln!(
-                    "  {}.{} -> {}.{}{source}",
-                    r.from_table, r.from_field, r.to_table, r.to_field
+                    "  {}.({}) -> {}.({}){source}",
+                    r.from_table, from_cols, r.to_table, to_cols
                 );
             }
             let constraint_count: usize = schema.tables.iter().map(|t| t.constraints.len()).sum();

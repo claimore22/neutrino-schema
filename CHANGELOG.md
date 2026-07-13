@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented here.
 
+## [0.5.0] - 2026-07-13
+
+### Added
+- **PK metadata constants** — every generated struct now gets a
+  `pub const TABLE_NAME_PRIMARY_KEY: &[&str]` listing primary key column names.
+  Composite PKs (e.g. `post_tags(post_id, tag_id)`) include all columns.
+  No PK → no constant emitted.
+- **Composite FK support** — `RelationIR::from_columns` and
+  `RelationIR::to_columns` are now `Vec<String>`, so multi-column foreign keys
+  (e.g. `user_sessions(user_id, device_id)`) produce a single `RelationIR`
+  instead of being split into per-column pairs.
+- **Better plural resolution** — `infer_relations_heuristic` now tries `"es"`
+  and `"ies"` suffix strategies in addition to `"s"` (e.g. `status_id` → `statuses`,
+  `category_id` → `categories`).
+- **Dynamic `to_columns` via PK lookup** — the naming heuristic now reads the
+  target table's primary key columns instead of always assuming `"id"`.
+
+### Changed (breaking)
+- `RelationSource` renamed to `RelationOrigin` — describes provenance
+  (`ForeignKey` / `Inferred`) rather than nature of the relation.
+- `RelationIR::source` → `RelationIR::origin`.
+- `RelationIR::from_field` (String) → `RelationIR::from_columns` (Vec\<String\>).
+- `RelationIR::to_field` (String) → `RelationIR::to_columns` (Vec\<String\>).
+- `RelationSource::ForeignKey(String)` → `RelationOrigin::ForeignKey` —
+  the constraint name was never consumed downstream and added noise.
+- `RelationSource::NamingHeuristic` → `RelationOrigin::Inferred`.
+- `ConstraintIR::fk_relations()` now returns one `RelationIR` per FK constraint
+  (not one per column pair), correctly representing composite foreign keys.
+
 ## [0.4.7] - 2026-07-13
 
 ### Added

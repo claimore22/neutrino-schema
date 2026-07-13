@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::ir::{EnumIR, RelationIR, RelationSource, RelationStrategy, TableIR};
+use crate::ir::{EnumIR, RelationIR, RelationOrigin, RelationStrategy, TableIR};
 use crate::types::{DbType, EnumRef};
 
 /// Full database schema — the top-level IR object consumed by code generation.
@@ -103,6 +103,46 @@ impl SchemaIR {
             .collect()
     }
 
+    /// Try to infer the singular table name from a known table in `tables`.
+    /// Returns `None` if no match is found after trying all plural strategies.
+    fn resolve_plural(tables: &[TableIR], prefix: &str) -> Option<String> {
+        if Self::table_exists(tables, prefix) {
+            return Some(prefix.to_string());
+        }
+        // Append "s"
+        let plural_s = format!("{}s", prefix);
+        if Self::table_exists(tables, &plural_s) {
+            return Some(plural_s);
+        }
+        // Append "es"
+        let plural_es = format!("{}es", prefix);
+        if Self::table_exists(tables, &plural_es) {
+            return Some(plural_es);
+        }
+        // Replace trailing "y" with "ies"
+        if let Some(stem) = prefix.strip_suffix('y') {
+            let plural_ies = format!("{}ies", stem);
+            if Self::table_exists(tables, &plural_ies) {
+                return Some(plural_ies);
+            }
+        }
+        None
+    }
+
+    /// Return the primary-key column name of a table, or `"id"` as fallback.
+    fn pk_column(tables: &[TableIR], table_name: &str) -> Vec<String> {
+        if let Some(tbl) = tables.iter().find(|t| t.name == table_name) {
+            if let Some(pk) = tbl.primary_key() {
+                if let crate::ir::ConstraintKind::PrimaryKey { columns } = &pk.kind {
+                    if columns.len() == 1 {
+                        return columns.clone();
+                    }
+                }
+            }
+        }
+        vec!["id".to_string()]
+    }
+
     fn infer_relations_heuristic(tables: &[TableIR], existing: &[RelationIR]) -> Vec<RelationIR> {
         let mut relations = Vec::new();
 
@@ -111,7 +151,7 @@ impl SchemaIR {
                 // Skip fields already covered by an FK constraint — FK metadata is authoritative
                 if existing
                     .iter()
-                    .any(|r| r.from_table == table.name && r.from_field == field.name)
+                    .any(|r| r.from_table == table.name && r.from_columns.contains(&field.name))
                 {
                     continue;
                 }
@@ -120,23 +160,18 @@ impl SchemaIR {
                     continue;
                 };
 
-                let to_table = if Self::table_exists(tables, prefix) {
-                    prefix.to_string()
-                } else {
-                    let plural = format!("{}s", prefix);
-                    if Self::table_exists(tables, &plural) {
-                        plural
-                    } else {
-                        continue;
-                    }
+                let Some(to_table) = Self::resolve_plural(tables, prefix) else {
+                    continue;
                 };
+
+                let to_columns = Self::pk_column(tables, &to_table);
 
                 relations.push(RelationIR {
                     from_table: table.name.clone(),
-                    from_field: field.name.clone(),
+                    from_columns: vec![field.name.clone()],
                     to_table,
-                    to_field: "id".to_string(),
-                    source: RelationSource::NamingHeuristic,
+                    to_columns,
+                    origin: RelationOrigin::Inferred,
                 });
             }
         }

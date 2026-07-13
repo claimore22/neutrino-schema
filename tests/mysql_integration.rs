@@ -162,7 +162,7 @@ async fn mysql_full_pipeline() {
         let columns = introspector.list_columns(&info.name).await.expect("list columns");
         let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
         let constraints = introspector.list_constraints(&info.name).await.expect("list constraints");
-        tables.push(neutrino_schema::ir::TableIR { name: info.name.to_string(), fields, constraints, comment: info.comment.clone() });
+        tables.push(neutrino_schema::ir::TableIR { name: info.name.to_string(), fields, constraints, comment: info.comment.clone(), indexes: vec![] });
     }
     let schema = SchemaIR::from_tables(tables, RelationStrategy::NamingHeuristic);
     assert!(schema.relations.iter().any(|r| r.from_table == "posts"));

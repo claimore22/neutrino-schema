@@ -99,6 +99,7 @@ async fn build_schema_from(
             fields,
             constraints,
             comment: table_info.comment.clone(),
+            indexes: vec![],
         });
     }
     SchemaIR::from_tables(tables, neutrino_schema::ir::RelationStrategy::Disabled)

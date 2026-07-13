@@ -27,11 +27,13 @@ pub(crate) async fn introspect_tables(
         let columns = introspector.list_columns(&info.name).await?;
         let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
         let constraints = introspector.list_constraints(&info.name).await?;
+        let indexes = introspector.list_indexes(&info.name).await?;
         tables.push(crate::ir::TableIR {
             name: info.name.clone(),
             fields,
             constraints,
             comment: info.comment.clone(),
+            indexes,
         });
     }
     Ok(tables)

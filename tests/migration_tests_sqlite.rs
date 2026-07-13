@@ -62,6 +62,7 @@ async fn build_schema() -> neutrino_schema::SchemaIR {
             fields,
             constraints,
             comment: info.comment.clone(),
+            indexes: vec![],
         });
     }
 

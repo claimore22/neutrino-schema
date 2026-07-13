@@ -93,6 +93,7 @@ fn render_field_with_enum_prefix(f: &FieldIR, mode: RenderMode) -> String {
 ///     }],
 ///     constraints: vec![],
 ///     comment: None,
+///     indexes: vec![],
 /// };
 ///
 /// let out = generate_struct(&table, RenderMode::Clean);
@@ -318,6 +319,7 @@ mod tests {
             fields: vec![field],
             constraints: vec![],
             comment: None,
+            indexes: vec![],
         };
         let result = generate_struct_file(&table, RenderMode::Clean);
         assert!(result.contains("super::enums::Mood"));
@@ -339,6 +341,7 @@ mod tests {
             fields: vec![field],
             constraints: vec![],
             comment: Some(" Users table".into()),
+            indexes: vec![],
         };
         let result = generate_struct_file(&table, RenderMode::Clean);
         assert!(result.contains("Option<super::enums::Mood>"));
@@ -359,6 +362,7 @@ mod tests {
             fields: vec![field],
             constraints: vec![],
             comment: None,
+            indexes: vec![],
         };
         let result = generate_struct(&table, RenderMode::Clean);
         assert!(result.contains("Mood"));

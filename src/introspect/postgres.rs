@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use sqlx::{PgPool, Row};
 
-use crate::ir::{ConstraintIR, ConstraintKind, EnumIR, EnumVariantIR, FieldIR, MatchType, ReferentialAction};
+use crate::ir::{ConstraintIR, ConstraintKind, EnumIR, EnumVariantIR, FieldIR, IndexEntryIR, IndexIR, IndexKind, MatchType, ReferentialAction};
 use crate::introspect::{Column, TableInfo};
 use crate::introspect::DatabaseIntrospector;
 use crate::types::{self, PgType};
@@ -279,6 +279,126 @@ impl DatabaseIntrospector for PostgresIntrospector {
         }
 
         Ok(grouped.into_values().filter_map(|b| b.build()).collect())
+    }
+
+    async fn list_indexes(&self, table: &str) -> anyhow::Result<Vec<IndexIR>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                c.relname                        AS index_name,
+                i.indisunique                    AS is_unique,
+                am.amname                        AS index_type,
+                pg_get_expr(i.indpred, i.indrelid) AS predicate,
+                i.indkey::text                   AS indkey_str,
+                i.indoption::text                AS indoption_str,
+                pg_get_expr(i.indexprs, i.indrelid) AS indexprs
+            FROM pg_index i
+            JOIN pg_class c  ON c.oid = i.indexrelid
+            JOIN pg_class t  ON t.oid = i.indrelid
+            JOIN pg_am    am ON am.oid = c.relam
+            JOIN pg_namespace n ON n.oid = t.relnamespace
+            WHERE t.relname = $1
+              AND n.nspname = 'public'
+            ORDER BY c.relname
+            "#,
+        )
+        .bind(table)
+        .fetch_all(&self.pool)
+        .await?;
+
+        // Batch-resolve pg_attribute for all columns in this table
+        let attr_rows = sqlx::query(
+            r#"
+            SELECT a.attnum, a.attname
+            FROM pg_attribute a
+            JOIN pg_class c ON c.oid = a.attrelid
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE c.relname = $1
+              AND n.nspname = 'public'
+              AND a.attnum > 0
+              AND NOT a.attisdropped
+            "#,
+        )
+        .bind(table)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let attr_map: std::collections::HashMap<i16, String> = attr_rows
+            .into_iter()
+            .filter_map(|r| {
+                let num: i16 = r.get("attnum");
+                let name: String = r.get("attname");
+                Some((num, name))
+            })
+            .collect();
+
+        let mut indexes = Vec::new();
+        for r in rows {
+            let name: String = r.get("index_name");
+            let unique: bool = r.get("is_unique");
+            let idx_type: String = r.get("index_type");
+            let kind = pg_index_kind(&idx_type);
+            let predicate: Option<String> = r.get("predicate");
+            let predicate = if predicate.as_deref() == Some("") { None } else { predicate };
+
+            let indkey_str: String = r.get("indkey_str");
+            let indoption_str: String = r.get("indoption_str");
+            let expr_str: Option<String> = r.get("indexprs");
+
+            let key_attnums: Vec<i16> = indkey_str
+                .split_whitespace()
+                .filter_map(|s| s.parse::<i16>().ok())
+                .collect();
+            let options: Vec<i16> = indoption_str
+                .split_whitespace()
+                .filter_map(|s| s.parse::<i16>().ok())
+                .collect();
+
+            let expr_parts: Vec<&str> = expr_str
+                .as_deref()
+                .map(|s| s.split(',').map(|p| p.trim()).collect())
+                .unwrap_or_default();
+
+            let mut entries = Vec::new();
+            for (i, &attnum) in key_attnums.iter().enumerate() {
+                let desc = options.get(i).copied().unwrap_or(0) & 0x01 != 0;
+
+                if attnum == 0 {
+                    if let Some(expr) = expr_parts.get(i) {
+                        entries.push(IndexEntryIR::Expression {
+                            expression: expr.to_string(),
+                        });
+                    }
+                } else if let Some(col_name) = attr_map.get(&attnum) {
+                    entries.push(IndexEntryIR::Column {
+                        name: col_name.clone(),
+                        descending: desc,
+                    });
+                }
+            }
+
+            indexes.push(IndexIR {
+                name,
+                table_name: table.to_string(),
+                entries,
+                unique,
+                kind,
+                predicate,
+            });
+        }
+        Ok(indexes)
+    }
+}
+
+/// Map PostgreSQL access method name to [`IndexKind`].
+fn pg_index_kind(am: &str) -> IndexKind {
+    match am {
+        "btree" => IndexKind::BTree,
+        "hash" => IndexKind::Hash,
+        "gin" => IndexKind::Gin,
+        "gist" => IndexKind::Gist,
+        "brin" => IndexKind::Brin,
+        other => IndexKind::Other(other.to_string()),
     }
 }
 

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use sqlx::{Row, SqlitePool};
 
-use crate::ir::{ConstraintIR, ConstraintKind, FieldIR, ReferentialAction};
+use crate::ir::{ConstraintIR, ConstraintKind, FieldIR, IndexEntryIR, IndexIR, IndexKind, ReferentialAction};
 use crate::introspect::{Column, TableInfo};
 use crate::types;
 
@@ -134,13 +134,12 @@ impl super::DatabaseIntrospector for SqliteIntrospector {
             });
         }
 
-        // Unique constraints — from pragma_index_list WHERE "unique" = 1 AND origin != 'pk'
-        // This captures both inline UNIQUE constraints (origin='u') and unique indexes
-        // created via CREATE UNIQUE INDEX (origin='c'). When index names collide
-        // across tables (e.g. `idx_public_id` in every migration file), only the
-        // first alphabetically succeeds; later duplicates are skipped by IF NOT EXISTS.
+        // Unique constraints — from pragma_index_list WHERE origin = 'u'
+        // (inline UNIQUE constraints in CREATE TABLE). Unique indexes created
+        // via CREATE UNIQUE INDEX (origin = 'c') are captured in list_indexes()
+        // as physical indexes with unique: true.
         let idx_rows = sqlx::query(
-            r#"SELECT * FROM pragma_index_list(?1) WHERE "unique" = 1 AND origin != 'pk'"#,
+            r#"SELECT * FROM pragma_index_list(?1) WHERE "unique" = 1 AND origin = 'u'"#,
         )
         .bind(table)
         .fetch_all(&self.pool)
@@ -178,6 +177,54 @@ impl super::DatabaseIntrospector for SqliteIntrospector {
         }
 
         Ok(constraints)
+    }
+
+    async fn list_indexes(&self, table: &str) -> anyhow::Result<Vec<IndexIR>> {
+        let idx_rows = sqlx::query(r#"SELECT * FROM pragma_index_list(?1)"#)
+            .bind(table)
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut indexes = Vec::new();
+        for r in idx_rows {
+            let name: String = r.get("name");
+            let unique: bool = r.get::<i32, _>("unique") != 0;
+
+            let col_rows = sqlx::query(
+                r#"SELECT * FROM pragma_index_xinfo(?1) WHERE "key" = 1 ORDER BY seqno"#,
+            )
+            .bind(&name)
+            .fetch_all(&self.pool)
+            .await?;
+
+            let entries: Vec<IndexEntryIR> = col_rows
+                .into_iter()
+                .filter_map(|cr| {
+                    let col_name: Option<String> = cr.get("name");
+                    col_name.map(|name| {
+                        let desc: bool = cr.get::<i32, _>("desc") != 0;
+                        IndexEntryIR::Column {
+                            name,
+                            descending: desc,
+                        }
+                    })
+                })
+                .collect();
+
+            indexes.push(IndexIR {
+                name,
+                table_name: table.to_string(),
+                entries,
+                unique,
+                kind: IndexKind::BTree,
+                // Expression and partial index support deferred: PRAGMA index_xinfo
+                // identifies expression entries (name=NULL) but cannot recover the
+                // expression text or WHERE predicate. Parsing sqlite_master SQL is
+                // needed for full metadata — intentionally scoped out of this commit.
+                predicate: None,
+            });
+        }
+        Ok(indexes)
     }
 }
 
@@ -274,6 +321,7 @@ fn parse_sqlite_checks(sql: &str) -> Option<Vec<(String, String)>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::introspect::DatabaseIntrospector;
 
     #[test]
     fn test_parse_sqlite_checks_basic() {
@@ -321,5 +369,115 @@ mod tests {
         let checks = result.unwrap();
         assert_eq!(checks.len(), 1);
         assert!(checks[0].1.contains("(a > 0) AND (a < 100)"));
+    }
+
+    async fn sqlite_test_pool() -> sqlx::SqlitePool {
+        sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect(":memory:")
+            .await
+            .expect("one-connection in-memory pool")
+    }
+
+    #[tokio::test]
+    async fn test_list_indexes_asc_desc() {
+        let pool = sqlite_test_pool().await;
+        sqlx::query("CREATE TABLE t (a INT, b INT)").execute(&pool).await.unwrap();
+        sqlx::query("CREATE INDEX idx_ab ON t (a ASC, b DESC)").execute(&pool).await.unwrap();
+
+        let introspector = super::super::SqliteIntrospector { pool };
+        let indexes = introspector.list_indexes("t").await.unwrap();
+        assert_eq!(indexes.len(), 1);
+
+        let idx = &indexes[0];
+        assert_eq!(idx.name, "idx_ab");
+        assert!(!idx.unique);
+        assert_eq!(idx.kind, IndexKind::BTree);
+        assert_eq!(idx.entries.len(), 2);
+
+        assert_eq!(
+            idx.entries[0],
+            IndexEntryIR::Column { name: "a".into(), descending: false },
+        );
+        assert_eq!(
+            idx.entries[1],
+            IndexEntryIR::Column { name: "b".into(), descending: true },
+        );
+    }
+
+    #[tokio::test]
+    async fn test_list_indexes_unique_origin_u_is_constraint() {
+        let pool = sqlite_test_pool().await;
+        sqlx::query("CREATE TABLE t (a INT UNIQUE)").execute(&pool).await.unwrap();
+
+        let introspector = super::super::SqliteIntrospector { pool };
+        let constraints = introspector.list_constraints("t").await.unwrap();
+        let uniques: Vec<_> = constraints.iter().filter(|c| matches!(c.kind, ConstraintKind::Unique { .. })).collect();
+        assert_eq!(uniques.len(), 1, "origin='u' should appear as ConstraintIR::Unique");
+
+        let indexes = introspector.list_indexes("t").await.unwrap();
+        let unique_idx: Vec<_> = indexes.iter().filter(|i| i.unique).collect();
+        assert!(!unique_idx.is_empty(), "origin='u' also appears as physical index with unique=true");
+    }
+
+    #[tokio::test]
+    async fn test_list_indexes_create_unique_index_not_in_constraints() {
+        let pool = sqlite_test_pool().await;
+        sqlx::query("CREATE TABLE t (a INT)").execute(&pool).await.unwrap();
+        sqlx::query("CREATE UNIQUE INDEX idx_a ON t (a)").execute(&pool).await.unwrap();
+
+        let introspector = super::super::SqliteIntrospector { pool };
+        let constraints = introspector.list_constraints("t").await.unwrap();
+        let uniques: Vec<_> = constraints.iter().filter(|c| matches!(c.kind, ConstraintKind::Unique { .. })).collect();
+        assert_eq!(uniques.len(), 0, "origin='c' unique index should NOT appear in constraints");
+
+        let indexes = introspector.list_indexes("t").await.unwrap();
+        let unique_idx: Vec<_> = indexes.iter().filter(|i| i.unique).collect();
+        assert_eq!(unique_idx.len(), 1, "origin='c' unique index should appear in indexes with unique=true");
+        assert_eq!(unique_idx[0].name, "idx_a");
+    }
+
+    #[tokio::test]
+    async fn test_list_indexes_kind_is_always_btree() {
+        let pool = sqlite_test_pool().await;
+        sqlx::query("CREATE TABLE t (a INT, b INT)").execute(&pool).await.unwrap();
+        sqlx::query("CREATE INDEX idx_a ON t (a)").execute(&pool).await.unwrap();
+        sqlx::query("CREATE UNIQUE INDEX idx_b ON t (b)").execute(&pool).await.unwrap();
+
+        let introspector = super::super::SqliteIntrospector { pool };
+        let indexes = introspector.list_indexes("t").await.unwrap();
+        assert!(!indexes.is_empty());
+        for idx in &indexes {
+            assert_eq!(idx.kind, IndexKind::BTree, "all SQLite indexes are BTree");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_list_indexes_expression_skipped() {
+        let pool = sqlite_test_pool().await;
+        sqlx::query("CREATE TABLE t (a INT, b TEXT)").execute(&pool).await.unwrap();
+        // Expression index — PRAGMA index_xinfo returns name=NULL for expression
+        // entries. This test verifies we skip them without panicking and without
+        // emitting a fake Expression { expression: "" } entry.
+        sqlx::query("CREATE INDEX idx_expr ON t (LOWER(b))")
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let introspector = super::super::SqliteIntrospector { pool };
+        let indexes = introspector.list_indexes("t").await.unwrap();
+        assert_eq!(indexes.len(), 1, "expression index should still be found");
+
+        let idx = &indexes[0];
+        assert_eq!(idx.name, "idx_expr");
+        // The expression entry (name=NULL) is filtered out, so entries is empty.
+        // This is a known gap — full expression text support requires parsing
+        // sqlite_master SQL, scoped out of this commit.
+        assert!(
+            idx.entries.is_empty(),
+            "expression entries are intentionally omitted; no fake entry emitted"
+        );
+        assert_eq!(idx.kind, IndexKind::BTree);
+        assert!(!idx.unique);
     }
 }

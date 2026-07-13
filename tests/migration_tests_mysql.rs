@@ -65,6 +65,7 @@ async fn build_schema(db_suffix: &str) -> Option<neutrino_schema::SchemaIR> {
             fields,
             constraints,
             comment: info.comment.clone(),
+            indexes: vec![],
         });
     }
     let schema = neutrino_schema::SchemaIR::from_tables(

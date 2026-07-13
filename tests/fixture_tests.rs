@@ -207,6 +207,7 @@ mod sqlite {
                 fields,
                 constraints,
                 comment: table_info.comment.clone(),
+                indexes: vec![],
             });
         }
         let schema = SchemaIR::from_tables(tables, RelationStrategy::NamingHeuristic);
@@ -220,6 +221,50 @@ mod sqlite {
 
         assert!(schema.table("users").is_some());
         assert!(schema.table("nonexistent").is_none());
+    }
+
+    #[tokio::test]
+    async fn indexes() {
+        use neutrino_schema::{IndexEntryIR, IndexKind};
+        let introspector = setup().await;
+
+        // --- users ---
+        let indexes = introspector.list_indexes("users").await.expect("list_indexes users");
+        let created_at = indexes.iter().find(|i| i.name == "idx_users_created_at")
+            .expect("idx_users_created_at");
+        assert!(!created_at.unique);
+        assert_eq!(created_at.kind, IndexKind::BTree);
+        assert_eq!(created_at.entries.len(), 1);
+        assert_eq!(created_at.entries[0],
+            IndexEntryIR::Column { name: "created_at".into(), descending: false });
+
+        // Expression index idx_users_email_lower on LOWER(email) — entries intentionally omitted
+        let email_lower = indexes.iter().find(|i| i.name == "idx_users_email_lower")
+            .expect("idx_users_email_lower");
+        assert!(email_lower.unique);
+        assert_eq!(email_lower.kind, IndexKind::BTree);
+        assert!(email_lower.entries.is_empty(),
+            "expression entries omitted pending sqlite_master parsing");
+
+        // --- posts ---
+        let indexes = introspector.list_indexes("posts").await.expect("list_indexes posts");
+        let user_created = indexes.iter().find(|i| i.name == "idx_posts_user_id_created")
+            .expect("idx_posts_user_id_created");
+        assert!(!user_created.unique);
+        assert_eq!(user_created.entries.len(), 2);
+        assert_eq!(user_created.entries[0],
+            IndexEntryIR::Column { name: "user_id".into(), descending: false });
+        assert_eq!(user_created.entries[1],
+            IndexEntryIR::Column { name: "created_at".into(), descending: false });
+
+        // --- profiles ---
+        let indexes = introspector.list_indexes("profiles").await.expect("list_indexes profiles");
+        let score = indexes.iter().find(|i| i.name == "idx_profiles_score")
+            .expect("idx_profiles_score");
+        assert!(!score.unique);
+        assert_eq!(score.entries.len(), 1);
+        assert_eq!(score.entries[0],
+            IndexEntryIR::Column { name: "score".into(), descending: false });
     }
 }
 
@@ -500,6 +545,7 @@ mod postgres {
                 fields,
                 constraints,
                 comment: table_info.comment.clone(),    
+                indexes: vec![],
             });
         }
         let schema = SchemaIR::from_tables(tables, RelationStrategy::NamingHeuristic);
@@ -517,6 +563,70 @@ mod postgres {
 
         drop(introspector);
         teardown("ns_fixture_pg_6").await;
+    }
+
+    #[tokio::test]
+    async fn indexes() {
+        use neutrino_schema::{IndexEntryIR, IndexKind};
+        let Some(introspector) = setup("ns_fixture_pg_7").await else {
+            eprintln!("Skipping postgres::indexes (DATABASE_URL not set)");
+            return;
+        };
+
+        // --- users ---
+        let indexes = introspector.list_indexes("users").await.expect("list_indexes users");
+        let created_at = indexes.iter().find(|i| i.name == "idx_users_created_at")
+            .expect("idx_users_created_at");
+        assert!(!created_at.unique);
+        assert_eq!(created_at.kind, IndexKind::BTree);
+        assert_eq!(created_at.entries.len(), 1);
+        assert_eq!(created_at.entries[0],
+            IndexEntryIR::Column { name: "created_at".into(), descending: false });
+
+        let is_active = indexes.iter().find(|i| i.name == "idx_users_is_active")
+            .expect("idx_users_is_active");
+        assert!(!is_active.unique);
+        assert_eq!(is_active.kind, IndexKind::BTree);
+        assert_eq!(
+            is_active.predicate.as_deref(),
+            Some("is_active = TRUE"),
+            "partial index with predicate"
+        );
+
+        let lower_email = indexes.iter().find(|i| i.name == "idx_users_lower_email")
+            .expect("idx_users_lower_email");
+        assert!(lower_email.unique);
+        assert_eq!(lower_email.entries.len(), 1);
+        assert_eq!(lower_email.entries[0],
+            IndexEntryIR::Expression { expression: "lower((email)::text)".into() });
+
+        // --- posts ---
+        let indexes = introspector.list_indexes("posts").await.expect("list_indexes posts");
+        let user_created = indexes.iter().find(|i| i.name == "idx_posts_user_id_created")
+            .expect("idx_posts_user_id_created");
+        assert!(!user_created.unique);
+        assert_eq!(user_created.entries.len(), 2);
+        assert_eq!(user_created.entries[0],
+            IndexEntryIR::Column { name: "user_id".into(), descending: false });
+        assert_eq!(user_created.entries[1],
+            IndexEntryIR::Column { name: "created_at".into(), descending: true });
+
+        let metadata = indexes.iter().find(|i| i.name == "idx_posts_metadata")
+            .expect("idx_posts_metadata");
+        assert!(!metadata.unique);
+        assert_eq!(metadata.kind, IndexKind::Gin);
+
+        // --- profiles ---
+        let indexes = introspector.list_indexes("profiles").await.expect("list_indexes profiles");
+        let score = indexes.iter().find(|i| i.name == "idx_profiles_score")
+            .expect("idx_profiles_score");
+        assert!(!score.unique);
+        assert_eq!(score.entries.len(), 1);
+        assert_eq!(score.entries[0],
+            IndexEntryIR::Column { name: "score".into(), descending: true });
+
+        drop(introspector);
+        teardown("ns_fixture_pg_7").await;
     }
 }
 
@@ -751,6 +861,7 @@ mod mysql {
                 name: table_info.name.clone(),
                 fields,
                 constraints,
+                indexes: vec![],
                 comment: table_info.comment.clone(),
             });
         }
@@ -768,5 +879,65 @@ mod mysql {
 
         drop(introspector);
         teardown("ns_fixture_my_5").await;
+    }
+
+    #[tokio::test]
+    async fn indexes() {
+        use neutrino_schema::{IndexEntryIR, IndexKind};
+        let Some(introspector) = setup("ns_fixture_my_6").await else {
+            eprintln!("Skipping mysql::indexes (MySQL unreachable)");
+            return;
+        };
+
+        // --- users ---
+        let indexes = introspector.list_indexes("users").await.expect("list_indexes users");
+        let created_at = indexes.iter().find(|i| i.name == "idx_users_created_at")
+            .expect("idx_users_created_at");
+        assert!(!created_at.unique);
+        assert_eq!(created_at.kind, IndexKind::BTree);
+        assert_eq!(created_at.entries.len(), 1);
+        assert_eq!(created_at.entries[0],
+            IndexEntryIR::Column { name: "created_at".into(), descending: false });
+
+        let is_active = indexes.iter().find(|i| i.name == "idx_users_is_active")
+            .expect("idx_users_is_active");
+        assert!(!is_active.unique);
+        assert_eq!(is_active.kind, IndexKind::BTree);
+
+        // MySQL functional index on LOWER(email) — INDEX_TYPE is BTREE, unique
+        let email_lower = indexes.iter().find(|i| i.name == "idx_users_email_lower")
+            .expect("idx_users_email_lower");
+        assert!(email_lower.unique);
+        assert_eq!(email_lower.kind, IndexKind::BTree);
+        assert_eq!(email_lower.entries.len(), 1);
+        assert!(matches!(&email_lower.entries[0], IndexEntryIR::Expression { .. }));
+
+        // --- posts ---
+        let indexes = introspector.list_indexes("posts").await.expect("list_indexes posts");
+        let user_created = indexes.iter().find(|i| i.name == "idx_posts_user_id_created")
+            .expect("idx_posts_user_id_created");
+        assert!(!user_created.unique);
+        assert_eq!(user_created.entries.len(), 2);
+        assert_eq!(user_created.entries[0],
+            IndexEntryIR::Column { name: "user_id".into(), descending: false });
+        assert_eq!(user_created.entries[1],
+            IndexEntryIR::Column { name: "created_at".into(), descending: true });
+
+        let body_ft = indexes.iter().find(|i| i.name == "idx_posts_body_fulltext")
+            .expect("idx_posts_body_fulltext");
+        assert!(!body_ft.unique);
+        assert_eq!(body_ft.kind, IndexKind::FullText);
+
+        // --- profiles ---
+        let indexes = introspector.list_indexes("profiles").await.expect("list_indexes profiles");
+        let score = indexes.iter().find(|i| i.name == "idx_profiles_score")
+            .expect("idx_profiles_score");
+        assert!(!score.unique);
+        assert_eq!(score.entries.len(), 1);
+        assert_eq!(score.entries[0],
+            IndexEntryIR::Column { name: "score".into(), descending: true });
+
+        drop(introspector);
+        teardown("ns_fixture_my_6").await;
     }
 }

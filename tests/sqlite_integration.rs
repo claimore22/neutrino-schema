@@ -152,6 +152,7 @@ async fn sqlite_full_pipeline() {
             fields,
             constraints,
             comment: info.comment.clone(),
+            indexes: vec![],
         });
     }
 

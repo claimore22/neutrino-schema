@@ -1,6 +1,6 @@
 use crate::introspect::Column;
 use crate::introspect::table::TableInfo;
-use crate::ir::{ConstraintIR, EnumIR, FieldIR};
+use crate::ir::{ConstraintIR, EnumIR, FieldIR, IndexIR};
 
 /// Abstraction for database introspection.
 ///
@@ -24,6 +24,13 @@ pub trait DatabaseIntrospector: Send + Sync {
     }
     /// List all constraints (PK, FK, UNIQUE, CHECK) for a given table.
     async fn list_constraints(&self, _table: &str) -> anyhow::Result<Vec<ConstraintIR>> {
+        Ok(Vec::new())
+    }
+    /// List all physical indexes for a given table.
+    ///
+    /// Default implementation returns an empty vec (for backends that don't
+    /// yet support index introspection).
+    async fn list_indexes(&self, _table: &str) -> anyhow::Result<Vec<IndexIR>> {
         Ok(Vec::new())
     }
 }

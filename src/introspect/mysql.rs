@@ -4,7 +4,7 @@ use sqlx::{MySqlPool, Row};
 
 use crate::introspect::parse_referential_action;
 use crate::introspect::table::TableInfo;
-use crate::ir::{ConstraintIR, ConstraintKind, EnumIR, EnumVariantIR, FieldIR};
+use crate::ir::{ConstraintIR, ConstraintKind, EnumIR, EnumVariantIR, FieldIR, IndexEntryIR, IndexIR, IndexKind};
 use crate::introspect::{parse_mysql_enum, Column, DatabaseIntrospector};
 use crate::types::{self, MysqlType};
 use crate::util::naming::{enum_variant_name, to_struct_name};
@@ -290,6 +290,100 @@ impl DatabaseIntrospector for MysqlIntrospector {
 
         Ok(constraints)
     }
+
+    async fn list_indexes(&self, table: &str) -> anyhow::Result<Vec<IndexIR>> {
+        // Try the query with EXPRESSION first. MariaDB (& MySQL < 8.0.13) will
+        // fail with "Unknown column" and we fall back to a query without it.
+        let rows = match sqlx::query(
+            r#"
+            SELECT
+                INDEX_NAME,
+                COLUMN_NAME,
+                EXPRESSION,
+                SEQ_IN_INDEX,
+                COLLATION,
+                NON_UNIQUE,
+                INDEX_TYPE
+            FROM information_schema.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = ?
+            ORDER BY INDEX_NAME, SEQ_IN_INDEX
+            "#,
+        )
+        .bind(table)
+        .fetch_all(&self.pool)
+        .await
+        {
+            Ok(rows) => (rows, true),
+            Err(e) if is_expression_column_missing(&e) => {
+                sqlx::query(
+                    r#"
+                    SELECT
+                        INDEX_NAME,
+                        COLUMN_NAME,
+                        SEQ_IN_INDEX,
+                        COLLATION,
+                        NON_UNIQUE,
+                        INDEX_TYPE
+                    FROM information_schema.STATISTICS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = ?
+                    ORDER BY INDEX_NAME, SEQ_IN_INDEX
+                    "#,
+                )
+                .bind(table)
+                .fetch_all(&self.pool)
+                .await
+                .map(|r| (r, false))?
+            }
+            Err(e) => return Err(e.into()),
+        };
+
+        let (rows, has_expression) = rows;
+
+        // Group rows by INDEX_NAME
+        let mut index_map: std::collections::HashMap<String, MysqlIndexBuilder> = HashMap::new();
+        for r in rows {
+            let idx_name: String = r.get("INDEX_NAME");
+            let entry = index_map.entry(idx_name.clone()).or_insert_with(|| {
+                MysqlIndexBuilder {
+                    name: idx_name,
+                    unique: r.get::<i32, _>("NON_UNIQUE") == 0,
+                    index_type: r.get("INDEX_TYPE"),
+                    entries: Vec::new(),
+                }
+            });
+            // Only update unique/index_type from first row; subsequent rows are
+            // additional columns of the same index.
+            // COLUMN_NAME can be NULL for functional indexes (e.g., LOWER(col))
+            let col_name: Option<String> = r.try_get("COLUMN_NAME").ok().and_then(|v: String| if v.is_empty() { None } else { Some(v) });
+            let collation: Option<String> = r.get("COLLATION");
+            let descending = collation.as_deref() == Some("D");
+            if let Some(name) = col_name {
+                entry.entries.push(IndexEntryIR::Column { name, descending });
+            } else if has_expression {
+                // EXPRESSION column is available (MySQL 8.0.13+)
+                let expr: Option<String> = r.try_get("EXPRESSION").ok().flatten();
+                if let Some(expression) = expr {
+                    entry.entries.push(IndexEntryIR::Expression { expression });
+                }
+            }
+            // On MariaDB (has_expression = false), COLUMN_NAME = NULL entries
+            // are silently skipped — functional key parts can't be introspected.
+        }
+
+        Ok(index_map
+            .into_values()
+            .map(|b| IndexIR {
+                name: b.name,
+                table_name: table.to_string(),
+                entries: b.entries,
+                unique: b.unique,
+                kind: mysql_index_kind(&b.index_type),
+                predicate: None,
+            })
+            .collect())
+    }
 }
 
 struct FkBuilder {
@@ -300,6 +394,25 @@ struct FkBuilder {
     delete_rule: Option<String>,
 }
 
+/// Helper for accumulating MySQL index columns from grouped STATISTICS rows.
+struct MysqlIndexBuilder {
+    name: String,
+    unique: bool,
+    index_type: String,
+    entries: Vec<IndexEntryIR>,
+}
+
+/// Map MySQL `INDEX_TYPE` value to [`IndexKind`].
+fn mysql_index_kind(ty: &str) -> IndexKind {
+    match ty {
+        "BTREE" => IndexKind::BTree,
+        "HASH" => IndexKind::Hash,
+        "FULLTEXT" => IndexKind::FullText,
+        "SPATIAL" => IndexKind::Spatial,
+        other => IndexKind::Other(other.to_string()),
+    }
+}
+
 /// Check whether an sqlx error indicates `information_schema.CHECK_CONSTRAINTS`
 /// is missing in the connected MySQL/MariaDB server (< 8.0.16 / < 10.2.1).
 fn is_check_constraints_not_found(e: &sqlx::Error) -> bool {
@@ -307,6 +420,18 @@ fn is_check_constraints_not_found(e: &sqlx::Error) -> bool {
         // MySQL error 1146 (ER_NO_SUCH_TABLE): Table doesn't exist
         if let Some(code) = db_err.code() {
             return code.as_ref() == "1146";
+        }
+    }
+    false
+}
+
+/// Check whether an sqlx error indicates `STATISTICS.EXPRESSION` is missing
+/// (MariaDB and MySQL < 8.0.13 do not have this column).
+fn is_expression_column_missing(e: &sqlx::Error) -> bool {
+    if let sqlx::Error::Database(db_err) = e {
+        // MySQL error code 1054 (ER_BAD_FIELD_ERROR): Unknown column
+        if let Some(code) = db_err.code() {
+            return code.as_ref() == "1054" || code.as_ref() == "42S22";
         }
     }
     false

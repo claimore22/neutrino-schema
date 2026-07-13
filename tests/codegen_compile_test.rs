@@ -48,6 +48,7 @@ async fn codegen_compile_sqlite_fixtures() {
             fields,
             constraints,
             comment: info.comment.clone(),
+            indexes: vec![],
         });
     }
 

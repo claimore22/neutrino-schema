@@ -34,6 +34,7 @@ fn generates_user_struct() {
         fields,
         constraints: vec![],
         comment: None,
+        indexes: vec![],
     }];
 
     let schema = SchemaIR::from_tables(tables, RelationStrategy::Disabled);
@@ -67,6 +68,7 @@ fn generates_debug_comments() {
         ],
         constraints: vec![],
         comment: Some(" Represents an inventory item".into()),
+        indexes: vec![],
     };
 
     let output = generate_struct(&table, RenderMode::Debug);

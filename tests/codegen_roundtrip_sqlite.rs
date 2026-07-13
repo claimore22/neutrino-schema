@@ -54,6 +54,7 @@ async fn generated_models_roundtrip_sqlite() {
             fields,
             constraints: vec![],
             comment: info.comment.clone(),
+            indexes: vec![],
         };
         let struct_src = generate_struct(&table, RenderMode::Debug);
         // Post-process: add sqlx::FromRow to derives

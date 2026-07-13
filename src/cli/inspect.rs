@@ -77,11 +77,13 @@ impl InspectCommand {
             // Single table: need to look up the comment separately
             let all_infos = introspector.list_tables_with_info().await?;
             let comment = all_infos.iter().find(|ti| ti.name == *table_name).and_then(|ti| ti.comment.clone());
+            let indexes = introspector.list_indexes(table_name).await?;
             let table_ir = crate::ir::TableIR {
                 name: table_name.clone(),
                 fields,
                 constraints,
                 comment,
+                indexes,
             };
             print!("{}", generate_struct(&table_ir, mode));
         } else {

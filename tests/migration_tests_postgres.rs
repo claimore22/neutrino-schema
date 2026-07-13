@@ -57,7 +57,7 @@ async fn build_schema(db_suffix: &str) -> Option<neutrino_schema::SchemaIR> {
         let columns = introspector.list_columns(&info.name).await.ok()?;
         let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
         let constraints = introspector.list_constraints(&info.name).await.ok()?;
-        tables.push(neutrino_schema::ir::TableIR { name: info.name.to_string(), fields, constraints, comment: info.comment.clone() });
+        tables.push(neutrino_schema::ir::TableIR { name: info.name.to_string(), fields, constraints, comment: info.comment.clone(), indexes: vec![] });
     }
     let schema = neutrino_schema::SchemaIR::from_tables(tables, neutrino_schema::ir::RelationStrategy::Disabled);
     drop(introspector);
@@ -77,7 +77,7 @@ async fn postgres_migration_discovery() {
         eprintln!("Skipping postgres::migration_discovery (DATABASE_URL not set)");
         return;
     };
-    let tables = introspector.list_tables_with_info().await.expect("list_tables failed");
+    let tables: Vec<neutrino_schema::introspect::TableInfo> = introspector.list_tables_with_info().await.expect("list_tables failed");
     assert_eq!(tables.len(), 28, "expected 28 tables");
 
     for name in &[

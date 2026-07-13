@@ -291,20 +291,29 @@ impl DatabaseIntrospector for PostgresIntrospector {
 
     async fn list_indexes(&self, table: &str) -> anyhow::Result<Vec<IndexIR>> {
         let rows = sqlx::query(
-            r#"
-            SELECT
+            r#"SELECT
                 c.relname                        AS index_name,
                 i.indisunique                    AS is_unique,
                 am.amname                        AS index_type,
                 pg_get_expr(i.indpred, i.indrelid) AS predicate,
                 i.indkey::text                   AS indkey_str,
                 i.indoption::text                AS indoption_str,
-                pg_get_expr(i.indexprs, i.indrelid) AS indexprs
+                index_expr.expr_str              AS index_expr_str
             FROM pg_index i
             JOIN pg_class c  ON c.oid = i.indexrelid
             JOIN pg_class t  ON t.oid = i.indrelid
             JOIN pg_am    am ON am.oid = c.relam
             JOIN pg_namespace n ON n.oid = t.relnamespace
+            LEFT JOIN LATERAL (
+                SELECT string_agg(
+                    pg_get_indexdef(i.indexrelid, seq.kpno, true),
+                    E'\n'
+                    ORDER BY seq.kpno
+                ) AS expr_str
+                FROM unnest(string_to_array(i.indkey::text, ' ')::int[])
+                    WITH ORDINALITY AS seq(attnum, kpno)
+                WHERE seq.attnum = 0
+            ) index_expr ON true
             WHERE t.relname = $1
               AND n.nspname = 'public'
             ORDER BY c.relname
@@ -351,7 +360,7 @@ impl DatabaseIntrospector for PostgresIntrospector {
 
             let indkey_str: String = r.get("indkey_str");
             let indoption_str: String = r.get("indoption_str");
-            let expr_str: Option<String> = r.get("indexprs");
+            let expr_str: Option<String> = r.get("index_expr_str");
 
             let key_attnums: Vec<i16> = indkey_str
                 .split_whitespace()
@@ -364,17 +373,33 @@ impl DatabaseIntrospector for PostgresIntrospector {
 
             let expr_parts: Vec<&str> = expr_str
                 .as_deref()
-                .map(|s| s.split(',').map(|p| p.trim()).collect())
+                .map(|s| s.split('\n').map(|p| p.trim()).collect())
                 .unwrap_or_default();
+
+            // Build position-to-expression map using the key order.
+            // The lateral join above returns expressions in indkey order (by kpno).
+            let mut expr_by_keypos: std::collections::HashMap<usize, String> =
+                std::collections::HashMap::new();
+            {
+                let mut heuristics_idx = 0usize;
+                for (i, &attnum) in key_attnums.iter().enumerate() {
+                    if attnum == 0 {
+                        if let Some(expr) = expr_parts.get(heuristics_idx) {
+                            expr_by_keypos.insert(i, expr.to_string());
+                        }
+                        heuristics_idx += 1;
+                    }
+                }
+            }
 
             let mut entries = Vec::new();
             for (i, &attnum) in key_attnums.iter().enumerate() {
                 let desc = options.get(i).copied().unwrap_or(0) & 0x01 != 0;
 
                 if attnum == 0 {
-                    if let Some(expr) = expr_parts.get(i) {
+                    if let Some(expr) = expr_by_keypos.get(&i) {
                         entries.push(IndexEntryIR::Expression {
-                            expression: expr.to_string(),
+                            expression: expr.clone(),
                         });
                     }
                 } else if let Some(col_name) = attr_map.get(&attnum) {

@@ -167,14 +167,10 @@ async fn sqlite_full_pipeline() {
         assert_eq!(r.to_field, "id");
     }
 
-    // Heuristic relation: posts.user_id → users.id
+    // Heuristic relation for the same FK pair should be suppressed
+    // (FK metadata is authoritative; naming heuristic only fills gaps).
     let heuristic_rel = schema.relations.iter().find(|r| matches!(r.source, neutrino_schema::ir::RelationSource::NamingHeuristic));
-    assert!(heuristic_rel.is_some(), "heuristic relation should exist");
-    if let Some(r) = heuristic_rel {
-        assert_eq!(r.from_field, "user_id");
-        assert_eq!(r.to_table, "users");
-        assert_eq!(r.to_field, "id");
-    }
+    assert!(heuristic_rel.is_none(), "heuristic relation should NOT exist when FK already covers posts.user_id → users.id");
 
     // Generated struct looks correct
     let users_table = schema.tables.iter().find(|t| t.name == "users").unwrap();

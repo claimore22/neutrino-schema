@@ -51,6 +51,7 @@ required-features = ["mysql"]
 
 [dev-dependencies]
 tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "macros"] }
+syn = { version = "2", features = ["full", "visit"] }
 
 [lints.clippy]
 all = "allow"

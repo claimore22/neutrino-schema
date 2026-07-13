@@ -65,6 +65,24 @@ async fn generated_models_roundtrip_sqlite() {
         struct_strs.push(struct_src);
     }
 
+    // ── Level 4A: Validate generated Rust parses with syn ──────────
+    let all_structs = struct_strs.join("\n");
+    let parsed: syn::File = syn::parse_file(&all_structs)
+        .unwrap_or_else(|e| panic!("Generated Rust failed to parse: {e}\n---\n{all_structs}\n---"));
+
+    // Verify every item is a struct with at least one field
+    let struct_count = parsed
+        .items
+        .iter()
+        .filter(|item| matches!(item, syn::Item::Struct(_)))
+        .count();
+    assert!(
+        struct_count >= table_infos.len(),
+        "Expected at least {} structs, got {}",
+        table_infos.len(),
+        struct_count,
+    );
+
     // ── 3. Write generated Cargo project ──────────────────────────────
     let tmp = std::env::temp_dir().join("ns_roundtrip_sqlite");
     let _ = std::fs::remove_dir_all(&tmp);

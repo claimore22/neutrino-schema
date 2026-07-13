@@ -3,7 +3,16 @@ use std::collections::BTreeSet;
 use crate::config::GeneratorConfig;
 use crate::ir::{EnumIR, FieldIR, SchemaIR, TableIR};
 use crate::types::{DbType, EnumRef, TypeRegistry};
-use crate::util::naming::to_struct_name;
+
+/// Render `value` as a multi-line `///` doc comment, escaping any interior
+/// lines that could break out of the doc-comment block.
+fn render_doc_comment(value: &str) -> String {
+    value
+        .lines()
+        .map(|line| format!("    /// {}", line))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
 
 // TODO: Add GenerateOptions { derive_from_row: bool, .. } to avoid
 // post-processing in tests/codegen_roundtrip_sqlite.rs.
@@ -26,15 +35,17 @@ fn render_field_default(f: &FieldIR, mode: RenderMode) -> String {
     if let Some(comment) = &f.comment {
         let trimmed = comment.trim();
         if !trimmed.is_empty() {
-            out.push_str(&format!("    /// {}\n", trimmed));
+            out.push_str(&render_doc_comment(trimmed));
+            out.push('\n');
         }
     }
+    let sanitized = crate::sanitize_identifier(&f.name);
     let ty = crate::types::dbtype_to_rust(&f.ty, f.nullable);
     match mode {
-        RenderMode::Clean => out + &format!("    pub {}: {},\n", f.name, ty),
+        RenderMode::Clean => out + &format!("    pub {sanitized}: {ty},\n"),
         RenderMode::Debug => {
             let null_label = if f.nullable { "NULL" } else { "NOT NULL" };
-            out + &format!("    pub {}: {}, // {}, {}\n", f.name, ty, f.raw_type, null_label)
+            out + &format!("    pub {sanitized}: {ty}, // {}, {null_label}\n", f.raw_type)
         }
     }
 }
@@ -44,14 +55,16 @@ fn render_field_with_enum_prefix(f: &FieldIR, mode: RenderMode) -> String {
     if let Some(comment) = &f.comment {
         let trimmed = comment.trim();
         if !trimmed.is_empty() {
-            out.push_str(&format!("    /// {}\n", trimmed));
+            out.push_str(&render_doc_comment(trimmed));
+            out.push('\n');
         }
     }
+    let sanitized = crate::sanitize_identifier(&f.name);
     let ty = match &f.ty {
         DbType::Enum(EnumRef { rust_name }) => {
             let base = format!("super::enums::{}", rust_name);
             if f.nullable {
-                format!("Option<{}>", base)
+                format!("Option<{base}>")
             } else {
                 base
             }
@@ -59,10 +72,10 @@ fn render_field_with_enum_prefix(f: &FieldIR, mode: RenderMode) -> String {
         _ => crate::types::dbtype_to_rust(&f.ty, f.nullable),
     };
     match mode {
-        RenderMode::Clean => out + &format!("    pub {}: {},\n", f.name, ty),
+        RenderMode::Clean => out + &format!("    pub {sanitized}: {ty},\n"),
         RenderMode::Debug => {
             let null_label = if f.nullable { "NULL" } else { "NOT NULL" };
-            out + &format!("    pub {}: {}, // {}, {}\n", f.name, ty, f.raw_type, null_label)
+            out + &format!("    pub {sanitized}: {ty}, // {}, {null_label}\n", f.raw_type)
         }
     }
 }
@@ -102,12 +115,14 @@ fn render_field_with_enum_prefix(f: &FieldIR, mode: RenderMode) -> String {
 /// ```
 pub fn generate_struct(table: &TableIR, mode: RenderMode) -> String {
     let mut out = String::new();
-    let struct_name = to_struct_name(&table.name);
+    let struct_name = crate::to_struct_name(&table.name);
 
     if let Some(comment) = &table.comment {
         let trimmed = comment.trim();
         if !trimmed.is_empty() {
-            out.push_str(&format!("/// {}\n", trimmed));
+            for line in trimmed.lines() {
+                out.push_str(&format!("/// {}\n", line));
+            }
         }
     }
     out.push_str("#[derive(Debug, Clone)]\n");
@@ -245,12 +260,14 @@ fn build_imports_block(schema: &SchemaIR, registry: &TypeRegistry) -> String {
 /// Like [`generate_struct`] but emits `super::enums::Name` for enum-typed fields.
 fn generate_struct_file(table: &TableIR, mode: RenderMode) -> String {
     let mut out = String::new();
-    let struct_name = to_struct_name(&table.name);
+    let struct_name = crate::to_struct_name(&table.name);
 
     if let Some(comment) = &table.comment {
         let trimmed = comment.trim();
         if !trimmed.is_empty() {
-            out.push_str(&format!("/// {}\n", trimmed));
+            for line in trimmed.lines() {
+                out.push_str(&format!("/// {}\n", line));
+            }
         }
     }
     out.push_str("#[derive(Debug, Clone)]\n");

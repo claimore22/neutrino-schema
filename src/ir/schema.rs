@@ -20,9 +20,10 @@ pub struct SchemaIR {
 impl SchemaIR {
     /// Build a [`SchemaIR`] from a set of tables without enums.
     pub fn from_tables(tables: Vec<TableIR>, strategy: RelationStrategy) -> Self {
-        let mut relations = Self::derive_fk_relations(&tables);
+        let fk_relations = Self::derive_fk_relations(&tables);
+        let mut relations = fk_relations.clone();
         if strategy == RelationStrategy::NamingHeuristic {
-            relations.extend(Self::infer_relations_heuristic(&tables));
+            relations.extend(Self::infer_relations_heuristic(&tables, &fk_relations));
         }
         SchemaIR {
             tables,
@@ -37,9 +38,10 @@ impl SchemaIR {
         enums: Vec<EnumIR>,
         strategy: RelationStrategy,
     ) -> Self {
-        let mut relations = Self::derive_fk_relations(&tables);
+        let fk_relations = Self::derive_fk_relations(&tables);
+        let mut relations = fk_relations.clone();
         if strategy == RelationStrategy::NamingHeuristic {
-            relations.extend(Self::infer_relations_heuristic(&tables));
+            relations.extend(Self::infer_relations_heuristic(&tables, &fk_relations));
         }
         SchemaIR {
             tables,
@@ -102,11 +104,16 @@ impl SchemaIR {
             .collect()
     }
 
-    fn infer_relations_heuristic(tables: &[TableIR]) -> Vec<RelationIR> {
+    fn infer_relations_heuristic(tables: &[TableIR], existing: &[RelationIR]) -> Vec<RelationIR> {
         let mut relations = Vec::new();
 
         for table in tables {
             for field in &table.fields {
+                // Skip fields already covered by an FK constraint — FK metadata is authoritative
+                if existing.iter().any(|r| r.from_table == table.name && r.from_field == field.name) {
+                    continue;
+                }
+
                 let Some(prefix) = field.name.strip_suffix("_id") else {
                     continue;
                 };

@@ -229,7 +229,13 @@ impl DatabaseIntrospector for MysqlIntrospector {
             });
         }
 
-        // Unique constraints — from STATISTICS (non-unique=0, not primary)
+        // Unique constraints — from STATISTICS (non-unique=0, not primary).
+        //
+        // NOTE: In MySQL/InnoDB, `UNIQUE(col)` and `CREATE UNIQUE INDEX idx(col)`
+        // are physically the same object — there is no logical-vs-physical split.
+        // Therefore MySQL reports all unique indexes as both ConstraintIR::Unique
+        // (here) and IndexIR (via list_indexes()). PostgreSQL and SQLite separate
+        // the two; this cross-backend difference is by design.
         let uq_rows = sqlx::query(
             r#"
             SELECT INDEX_NAME, COLUMN_NAME, SEQ_IN_INDEX

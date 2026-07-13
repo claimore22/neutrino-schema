@@ -75,7 +75,15 @@ impl GenerateCommand {
         let table_infos = if self.table.is_empty() {
             introspector.list_tables_with_info().await?
         } else {
+            let all_tables = introspector.list_tables_with_info().await?;
+            let existing: std::collections::HashSet<&str> =
+                all_tables.iter().map(|t| t.name.as_str()).collect();
             let names = normalize_table_names(&self.table);
+            for name in &names {
+                if !existing.contains(name.as_str()) {
+                    anyhow::bail!("Table \"{name}\" not found in database");
+                }
+            }
             names
                 .into_iter()
                 .map(|name| crate::introspect::TableInfo { name, comment: None })
@@ -89,22 +97,25 @@ impl GenerateCommand {
         )
         .await?;
 
-        // Build type registry with config overrides
-        let registry = match crate::config::ProjectConfig::load_from_cwd()? {
-            Some(cfg) => crate::types::TypeRegistry::with_overrides(cfg.types),
-            None => crate::types::TypeRegistry::default(),
+        // Build type registry and generator config from config file,
+        // then apply CLI overrides (CLI > config > default).
+        let (mut config, registry) = match crate::config::ProjectConfig::load_from_cwd()? {
+            Some(cfg) => (
+                cfg.generator,
+                crate::types::TypeRegistry::with_overrides(cfg.types),
+            ),
+            None => (
+                GeneratorConfig::default(),
+                crate::types::TypeRegistry::default(),
+            ),
         };
 
-        let output_dir = self
-            .output
-            .clone()
-            .unwrap_or_else(|| PathBuf::from("./src/entities"));
-
-        let config = GeneratorConfig {
-            output_dir,
-            module_name: "types".into(),
-            render_mode: if self.debug { RenderMode::Debug } else { RenderMode::Clean },
-        };
+        if let Some(ref output) = self.output {
+            config.output_dir = output.clone();
+        }
+        if self.debug {
+            config.render_mode = RenderMode::Debug;
+        }
 
         crate::codegen::generate_files_with_registry(&schema, &config, &registry)?;
 

@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented here.
 
-## [0.5.0] - 2026-07-13
+## [0.4.7] - 2026-07-13
 
 ### Added
 - **IndexIR introspection** for PostgreSQL, MySQL, and SQLite — every index

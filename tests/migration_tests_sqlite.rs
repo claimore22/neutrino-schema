@@ -1,6 +1,6 @@
 mod common;
 
-use common::migrations_common::{execute_sqlite_batch, load_migration_sql, MigrationBackend};
+use common::migrations_common::{MigrationBackend, execute_sqlite_batch, load_migration_sql};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -48,16 +48,28 @@ async fn build_schema() -> neutrino_schema::SchemaIR {
 
     let introspector = neutrino_schema::introspect::SqliteIntrospector::new(pool);
 
-    let table_infos = introspector.list_tables_with_info().await.expect("list_tables failed");
+    let table_infos = introspector
+        .list_tables_with_info()
+        .await
+        .expect("list_tables failed");
     let mut tables = Vec::new();
     for info in &table_infos {
-        let columns = introspector.list_columns(&info.name).await.expect("list_columns failed");
+        let columns = introspector
+            .list_columns(&info.name)
+            .await
+            .expect("list_columns failed");
         let fields: Vec<_> = columns
             .iter()
             .map(|c| introspector.column_to_field(c))
             .collect();
-        let constraints = introspector.list_constraints(&info.name).await.expect("list_constraints failed");
-        let indexes = introspector.list_indexes(&info.name).await.expect("list_indexes failed");
+        let constraints = introspector
+            .list_constraints(&info.name)
+            .await
+            .expect("list_constraints failed");
+        let indexes = introspector
+            .list_indexes(&info.name)
+            .await
+            .expect("list_indexes failed");
         tables.push(neutrino_schema::ir::TableIR {
             name: info.name.to_string(),
             fields,
@@ -97,7 +109,10 @@ async fn sqlite_migration_discovery() {
         .expect("execute sqlite migrations");
 
     let introspector = neutrino_schema::introspect::SqliteIntrospector::new(pool);
-    let table_infos = introspector.list_tables_with_info().await.expect("list_tables failed");
+    let table_infos = introspector
+        .list_tables_with_info()
+        .await
+        .expect("list_tables failed");
 
     assert_eq!(table_infos.len(), 28, "expected 28 tables");
     let table_names: Vec<&str> = table_infos.iter().map(|ti| ti.name.as_str()).collect();
@@ -161,12 +176,18 @@ async fn sqlite_migration_column_order() {
     let introspector = neutrino_schema::introspect::SqliteIntrospector::new(pool);
 
     // Column order matters for generated structs
-    let users_cols = introspector.list_columns("users").await.expect("list_columns for users failed");
+    let users_cols = introspector
+        .list_columns("users")
+        .await
+        .expect("list_columns for users failed");
     assert_eq!(users_cols[0].column_name, "id");
     assert_eq!(users_cols[1].column_name, "public_id");
     assert_eq!(users_cols[2].column_name, "first_name");
 
-    let sessions_cols = introspector.list_columns("sessions").await.expect("list_columns for sessions failed");
+    let sessions_cols = introspector
+        .list_columns("sessions")
+        .await
+        .expect("list_columns for sessions failed");
     assert_eq!(sessions_cols[0].column_name, "session_id");
 }
 
@@ -176,14 +197,18 @@ async fn sqlite_migration_relations() {
     let schema = build_schema().await;
 
     // Self-referencing FK: oauth_refresh_tokens.previous_token_id -> oauth_refresh_tokens(id)
-    let tokens = schema.table("oauth_refresh_tokens").expect("oauth_refresh_tokens table not found in schema");
+    let tokens = schema
+        .table("oauth_refresh_tokens")
+        .expect("oauth_refresh_tokens table not found in schema");
     assert!(
         has_fk(tokens, "oauth_refresh_tokens"),
         "expected self-referencing FK on oauth_refresh_tokens"
     );
 
     // Multiple FKs to same target: roles.created_by/updated_by/deleted_by -> users(id)
-    let roles = schema.table("roles").expect("roles table not found in schema");
+    let roles = schema
+        .table("roles")
+        .expect("roles table not found in schema");
     let fks_to_users: Vec<_> = roles
         .constraints
         .iter()
@@ -215,7 +240,10 @@ async fn sqlite_migration_relations() {
             }
         }
     }
-    assert_eq!(bare_fk_count, 52, "expected 52 FK constraints across all tables");
+    assert_eq!(
+        bare_fk_count, 52,
+        "expected 52 FK constraints across all tables"
+    );
 }
 
 #[cfg(feature = "sqlite")]
@@ -227,50 +255,130 @@ async fn sqlite_migration_types() {
     let schema = build_schema().await;
 
     // users table — type coverage
-    let users = schema.table("users").expect("users table not found in schema");
+    let users = schema
+        .table("users")
+        .expect("users table not found in schema");
 
-    let public_id = users.fields.iter().find(|f| f.name == "public_id").expect("users.public_id field not found");
-    assert_eq!(public_id.ty, DbType::Binary, "public_id BLOB -> DbType::Binary");
+    let public_id = users
+        .fields
+        .iter()
+        .find(|f| f.name == "public_id")
+        .expect("users.public_id field not found");
+    assert_eq!(
+        public_id.ty,
+        DbType::Binary,
+        "public_id BLOB -> DbType::Binary"
+    );
     assert!(!public_id.nullable);
 
-    let email = users.fields.iter().find(|f| f.name == "email").expect("users.email field not found");
+    let email = users
+        .fields
+        .iter()
+        .find(|f| f.name == "email")
+        .expect("users.email field not found");
     assert_eq!(email.ty, DbType::String, "email TEXT -> DbType::String");
     assert!(!email.nullable);
 
-    let is_active = users.fields.iter().find(|f| f.name == "is_active").expect("users.is_active field not found");
-    assert_eq!(is_active.ty, DbType::Integer, "is_active INTEGER -> DbType::Integer");
+    let is_active = users
+        .fields
+        .iter()
+        .find(|f| f.name == "is_active")
+        .expect("users.is_active field not found");
+    assert_eq!(
+        is_active.ty,
+        DbType::Integer,
+        "is_active INTEGER -> DbType::Integer"
+    );
     assert!(!is_active.nullable);
 
-    let last_login_ip = users.fields.iter().find(|f| f.name == "last_login_ip").expect("users.last_login_ip field not found");
-    assert_eq!(last_login_ip.ty, DbType::String, "last_login_ip TEXT -> DbType::String");
+    let last_login_ip = users
+        .fields
+        .iter()
+        .find(|f| f.name == "last_login_ip")
+        .expect("users.last_login_ip field not found");
+    assert_eq!(
+        last_login_ip.ty,
+        DbType::String,
+        "last_login_ip TEXT -> DbType::String"
+    );
     assert!(last_login_ip.nullable);
 
-    let created_at = users.fields.iter().find(|f| f.name == "created_at").expect("users.created_at field not found");
-    assert_eq!(created_at.ty, DbType::String, "created_at TEXT -> DbType::String");
+    let created_at = users
+        .fields
+        .iter()
+        .find(|f| f.name == "created_at")
+        .expect("users.created_at field not found");
+    assert_eq!(
+        created_at.ty,
+        DbType::String,
+        "created_at TEXT -> DbType::String"
+    );
     assert!(!created_at.nullable);
 
-    let deleted_at = users.fields.iter().find(|f| f.name == "deleted_at").expect("users.deleted_at field not found");
-    assert_eq!(deleted_at.ty, DbType::String, "deleted_at TEXT -> DbType::String");
+    let deleted_at = users
+        .fields
+        .iter()
+        .find(|f| f.name == "deleted_at")
+        .expect("users.deleted_at field not found");
+    assert_eq!(
+        deleted_at.ty,
+        DbType::String,
+        "deleted_at TEXT -> DbType::String"
+    );
     assert!(deleted_at.nullable);
 
     // roles table — non-autoincrement PK
-    let roles = schema.table("roles").expect("roles table not found in schema");
-    let id = roles.fields.iter().find(|f| f.name == "id").expect("roles.id field not found");
-    assert_eq!(id.ty, DbType::Integer, "roles.id INTEGER -> DbType::Integer");
+    let roles = schema
+        .table("roles")
+        .expect("roles table not found in schema");
+    let id = roles
+        .fields
+        .iter()
+        .find(|f| f.name == "id")
+        .expect("roles.id field not found");
+    assert_eq!(
+        id.ty,
+        DbType::Integer,
+        "roles.id INTEGER -> DbType::Integer"
+    );
     assert!(!id.nullable);
 
     // sessions — BLOB PK (session_id)
-    let sessions = schema.table("sessions").expect("sessions table not found in schema");
-    let session_id = sessions.fields.iter().find(|f| f.name == "session_id").expect("sessions.session_id field not found");
-    assert_eq!(session_id.ty, DbType::Binary, "session_id BLOB -> DbType::Binary");
+    let sessions = schema
+        .table("sessions")
+        .expect("sessions table not found in schema");
+    let session_id = sessions
+        .fields
+        .iter()
+        .find(|f| f.name == "session_id")
+        .expect("sessions.session_id field not found");
+    assert_eq!(
+        session_id.ty,
+        DbType::Binary,
+        "session_id BLOB -> DbType::Binary"
+    );
     assert!(!session_id.nullable, "session_id PK should be NOT NULL");
 
-    let session_data = sessions.fields.iter().find(|f| f.name == "session_data").expect("sessions.session_data field not found");
-    assert_eq!(session_data.ty, DbType::String, "session_data TEXT -> DbType::String");
+    let session_data = sessions
+        .fields
+        .iter()
+        .find(|f| f.name == "session_data")
+        .expect("sessions.session_data field not found");
+    assert_eq!(
+        session_data.ty,
+        DbType::String,
+        "session_data TEXT -> DbType::String"
+    );
 
     // oauth_device_codes — CHECK constraint status column
-    let device_codes = schema.table("oauth_device_codes").expect("oauth_device_codes table not found in schema");
-    let status = device_codes.fields.iter().find(|f| f.name == "status").expect("oauth_device_codes.status field not found");
+    let device_codes = schema
+        .table("oauth_device_codes")
+        .expect("oauth_device_codes table not found in schema");
+    let status = device_codes
+        .fields
+        .iter()
+        .find(|f| f.name == "status")
+        .expect("oauth_device_codes.status field not found");
     assert_eq!(status.ty, DbType::String, "status TEXT -> DbType::String");
     assert!(!status.nullable);
 }
@@ -284,9 +392,10 @@ async fn sqlite_migration_constraints() {
 
     // Every table should have a PK constraint
     for table in &schema.tables {
-        let has_pk = table.constraints.iter().any(|c| {
-            matches!(c.kind, ConstraintKind::PrimaryKey { .. })
-        });
+        let has_pk = table
+            .constraints
+            .iter()
+            .any(|c| matches!(c.kind, ConstraintKind::PrimaryKey { .. }));
         assert!(has_pk, "table {} has no primary key", table.name);
     }
 
@@ -320,20 +429,34 @@ async fn sqlite_migration_constraints() {
             }
         }
     }
-    assert_eq!(unique_count, 4, "expected 4 logical UNIQUE constraints, got {}", unique_count);
+    assert_eq!(
+        unique_count, 4,
+        "expected 4 logical UNIQUE constraints, got {}",
+        unique_count
+    );
 
     // Physical unique indexes — verify a sample via list_indexes data.
     // These are CREATE UNIQUE INDEX entries that moved from ConstraintIR to IndexIR.
     for table in &schema.tables {
         for idx in &table.indexes {
             // Every unique index should have at least one entry
-            assert!(!idx.entries.is_empty(), "index {} on {} has no entries", idx.name, table.name);
+            assert!(
+                !idx.entries.is_empty(),
+                "index {} on {} has no entries",
+                idx.name,
+                table.name
+            );
         }
     }
     // Roles has an inline UNIQUE on name — verify both constraint and index capture it.
     let roles = schema.table("roles").expect("roles table");
-    assert!(roles.constraints.iter().any(|c| matches!(&c.kind, ConstraintKind::Unique { columns } if columns == &vec!["name"])));
-    assert!(roles.indexes.iter().any(|i| i.unique), "roles should have a unique index for name");
+    assert!(roles.constraints.iter().any(
+        |c| matches!(&c.kind, ConstraintKind::Unique { columns } if columns == &vec!["name"])
+    ));
+    assert!(
+        roles.indexes.iter().any(|i| i.unique),
+        "roles should have a unique index for name"
+    );
 }
 
 #[cfg(feature = "sqlite")]
@@ -418,7 +541,10 @@ async fn sqlite_migration_indexes() {
         .await
         .expect("PRAGMA index_list for users");
     let users_index_count: i64 = rows.get("cnt");
-    assert_eq!(users_index_count, 3, "users should have 3 indexes (idx_email_active, idx_email_unique, idx_email_verified_at)");
+    assert_eq!(
+        users_index_count, 3,
+        "users should have 3 indexes (idx_email_active, idx_email_unique, idx_email_verified_at)"
+    );
 
     // Roles: autoindex for inline UNIQUE on `name`
     let rows = sqlx::query("SELECT COUNT(*) AS cnt FROM pragma_index_list('roles')")
@@ -426,7 +552,10 @@ async fn sqlite_migration_indexes() {
         .await
         .expect("PRAGMA index_list for roles");
     let roles_index_count: i64 = rows.get("cnt");
-    assert_eq!(roles_index_count, 1, "roles should have 1 index (autoindex for name UNIQUE)");
+    assert_eq!(
+        roles_index_count, 1,
+        "roles should have 1 index (autoindex for name UNIQUE)"
+    );
 
     // Sessions: only the BLOB PK autoindex; idx_expires_at and idx_public_id collide
     // with earlier files (oauth_access_tokens, account_lockouts respectively).
@@ -435,5 +564,8 @@ async fn sqlite_migration_indexes() {
         .await
         .expect("PRAGMA index_list for sessions");
     let sessions_index_count: i64 = rows.get("cnt");
-    assert_eq!(sessions_index_count, 1, "sessions should have 1 index (BLOB PK autoindex)");
+    assert_eq!(
+        sessions_index_count, 1,
+        "sessions should have 1 index (BLOB PK autoindex)"
+    );
 }

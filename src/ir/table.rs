@@ -26,6 +26,8 @@ impl TableIR {
     ///
     /// Logical constraint, not an index — see [`ConstraintKind::PrimaryKey`].
     pub fn primary_key(&self) -> Option<&ConstraintIR> {
-        self.constraints.iter().find(|c| matches!(c.kind, ConstraintKind::PrimaryKey { .. }))
+        self.constraints
+            .iter()
+            .find(|c| matches!(c.kind, ConstraintKind::PrimaryKey { .. }))
     }
 }

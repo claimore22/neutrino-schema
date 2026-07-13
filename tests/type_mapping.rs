@@ -221,11 +221,20 @@ fn sqlite_decimal_is_unknown() {
 fn registry_default_resolves() {
     let registry = TypeRegistry::default();
     assert_eq!(registry.resolve(&DbType::Integer).name, "i32");
-    assert_eq!(registry.resolve(&DbType::Decimal).name, "rust_decimal::Decimal");
+    assert_eq!(
+        registry.resolve(&DbType::Decimal).name,
+        "rust_decimal::Decimal"
+    );
     assert_eq!(registry.resolve(&DbType::Uuid).name, "uuid::Uuid");
-    assert_eq!(registry.resolve(&DbType::TimestampTz).name, "chrono::DateTime<chrono::Utc>");
+    assert_eq!(
+        registry.resolve(&DbType::TimestampTz).name,
+        "chrono::DateTime<chrono::Utc>"
+    );
     assert_eq!(registry.resolve(&DbType::Binary).name, "Vec<u8>");
-    assert_eq!(registry.resolve(&DbType::Unknown("foo".into())).name, "String");
+    assert_eq!(
+        registry.resolve(&DbType::Unknown("foo".into())).name,
+        "String"
+    );
 }
 
 #[test]
@@ -234,10 +243,7 @@ fn registry_overrides_work() {
         .into_iter()
         .collect();
     let registry = TypeRegistry::with_overrides(overrides);
-    assert_eq!(
-        registry.resolve(&DbType::Integer).name,
-        "my_crate::MyInt"
-    );
+    assert_eq!(registry.resolve(&DbType::Integer).name, "my_crate::MyInt");
 }
 
 #[test]

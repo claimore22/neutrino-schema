@@ -1,8 +1,9 @@
+#![allow(clippy::unwrap_used)]
 use neutrino_schema::{
+    RelationStrategy,
     introspect::{DatabaseIntrospector, MysqlIntrospector},
     ir::SchemaIR,
     types::DbType,
-    RelationStrategy,
 };
 
 const MYSQL_URL: &str = "mysql://root:1qaz2wsx@localhost:3306";
@@ -24,12 +25,10 @@ async fn setup(db_name: &str) -> Option<MysqlIntrospector> {
     .execute(&admin)
     .await
     .ok();
-    sqlx::query(sqlx::AssertSqlSafe(format!(
-        "CREATE DATABASE `{db_name}`"
-    )))
-    .execute(&admin)
-    .await
-    .ok()?;
+    sqlx::query(sqlx::AssertSqlSafe(format!("CREATE DATABASE `{db_name}`")))
+        .execute(&admin)
+        .await
+        .ok()?;
     admin.close().await;
 
     let pool = sqlx::mysql::MySqlPoolOptions::new()
@@ -89,7 +88,10 @@ async fn mysql_list_tables() {
         eprintln!("MySQL unreachable — skipping mysql_list_tables");
         return;
     };
-    let table_infos = introspector.list_tables_with_info().await.expect("list tables");
+    let table_infos = introspector
+        .list_tables_with_info()
+        .await
+        .expect("list tables");
     let tables: Vec<String> = table_infos.iter().map(|ti| ti.name.clone()).collect();
     assert!(tables.contains(&"users".to_string()));
     assert!(tables.contains(&"posts".to_string()));
@@ -103,10 +105,31 @@ async fn mysql_list_columns() {
         eprintln!("MySQL unreachable — skipping mysql_list_columns");
         return;
     };
-    let columns = introspector.list_columns("users").await.expect("list columns");
-    assert!(!columns.iter().find(|c| c.column_name == "id").unwrap().nullable);
-    assert!(!columns.iter().find(|c| c.column_name == "email").unwrap().nullable);
-    assert!(columns.iter().find(|c| c.column_name == "full_name").unwrap().nullable);
+    let columns = introspector
+        .list_columns("users")
+        .await
+        .expect("list columns");
+    assert!(
+        !columns
+            .iter()
+            .find(|c| c.column_name == "id")
+            .unwrap()
+            .nullable
+    );
+    assert!(
+        !columns
+            .iter()
+            .find(|c| c.column_name == "email")
+            .unwrap()
+            .nullable
+    );
+    assert!(
+        columns
+            .iter()
+            .find(|c| c.column_name == "full_name")
+            .unwrap()
+            .nullable
+    );
     drop(introspector);
     teardown("ns_list_columns").await;
 }
@@ -117,12 +140,30 @@ async fn mysql_column_to_field() {
         eprintln!("MySQL unreachable — skipping mysql_column_to_field");
         return;
     };
-    let columns = introspector.list_columns("users").await.expect("list columns");
-    let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
-    assert_eq!(fields.iter().find(|f| f.name == "id").unwrap().ty, DbType::Integer);
-    assert_eq!(fields.iter().find(|f| f.name == "email").unwrap().ty, DbType::String);
-    assert_eq!(fields.iter().find(|f| f.name == "salary").unwrap().ty, DbType::Decimal);
-    assert_eq!(fields.iter().find(|f| f.name == "avatar").unwrap().ty, DbType::Binary);
+    let columns = introspector
+        .list_columns("users")
+        .await
+        .expect("list columns");
+    let fields: Vec<_> = columns
+        .iter()
+        .map(|c| introspector.column_to_field(c))
+        .collect();
+    assert_eq!(
+        fields.iter().find(|f| f.name == "id").unwrap().ty,
+        DbType::Integer
+    );
+    assert_eq!(
+        fields.iter().find(|f| f.name == "email").unwrap().ty,
+        DbType::String
+    );
+    assert_eq!(
+        fields.iter().find(|f| f.name == "salary").unwrap().ty,
+        DbType::Decimal
+    );
+    assert_eq!(
+        fields.iter().find(|f| f.name == "avatar").unwrap().ty,
+        DbType::Binary
+    );
     drop(introspector);
     teardown("ns_column_to_field").await;
 }
@@ -134,13 +175,19 @@ async fn mysql_list_constraints() {
         return;
     };
 
-    let user_constraints = introspector.list_constraints("users").await.expect("list constraints");
+    let user_constraints = introspector
+        .list_constraints("users")
+        .await
+        .expect("list constraints");
     assert!(user_constraints.iter().any(|c| matches!(&c.kind, neutrino_schema::ir::ConstraintKind::PrimaryKey { columns } if columns == &vec!["id".to_string()])),
         "expected PK on id");
     assert!(user_constraints.iter().any(|c| matches!(&c.kind, neutrino_schema::ir::ConstraintKind::Unique { columns } if columns == &vec!["email".to_string()])),
         "expected UNIQUE on email");
 
-    let post_constraints = introspector.list_constraints("posts").await.expect("list constraints");
+    let post_constraints = introspector
+        .list_constraints("posts")
+        .await
+        .expect("list constraints");
     assert!(post_constraints.iter().any(|c| matches!(&c.kind, neutrino_schema::ir::ConstraintKind::PrimaryKey { columns } if columns == &vec!["id".to_string()])),
         "expected PK on id");
     assert!(post_constraints.iter().any(|c| matches!(&c.kind, neutrino_schema::ir::ConstraintKind::ForeignKey { columns, referenced_table, .. } if columns == &vec!["user_id".to_string()] && referenced_table == "users")),
@@ -156,13 +203,31 @@ async fn mysql_full_pipeline() {
         eprintln!("MySQL unreachable — skipping mysql_full_pipeline");
         return;
     };
-    let table_infos = introspector.list_tables_with_info().await.expect("list tables");
+    let table_infos = introspector
+        .list_tables_with_info()
+        .await
+        .expect("list tables");
     let mut tables = Vec::new();
     for info in &table_infos {
-        let columns = introspector.list_columns(&info.name).await.expect("list columns");
-        let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
-        let constraints = introspector.list_constraints(&info.name).await.expect("list constraints");
-        tables.push(neutrino_schema::ir::TableIR { name: info.name.to_string(), fields, constraints, comment: info.comment.clone(), indexes: vec![] });
+        let columns = introspector
+            .list_columns(&info.name)
+            .await
+            .expect("list columns");
+        let fields: Vec<_> = columns
+            .iter()
+            .map(|c| introspector.column_to_field(c))
+            .collect();
+        let constraints = introspector
+            .list_constraints(&info.name)
+            .await
+            .expect("list constraints");
+        tables.push(neutrino_schema::ir::TableIR {
+            name: info.name.to_string(),
+            fields,
+            constraints,
+            comment: info.comment.clone(),
+            indexes: vec![],
+        });
     }
     let schema = SchemaIR::from_tables(tables, RelationStrategy::NamingHeuristic);
     assert!(schema.relations.iter().any(|r| r.from_table == "posts"));

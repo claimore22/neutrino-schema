@@ -1,6 +1,5 @@
 use neutrino_schema::{
-    generate_struct, FieldIR, RelationStrategy, RenderMode, SchemaIR, TableIR,
-    types::DbType,
+    FieldIR, RelationStrategy, RenderMode, SchemaIR, TableIR, generate_struct, types::DbType,
 };
 
 #[test]
@@ -91,5 +90,8 @@ fn pascal_case_table_names() {
 
     assert_eq!(to_struct_name("users"), "Users");
     assert_eq!(to_struct_name("user_profiles"), "UserProfiles");
-    assert_eq!(to_struct_name("email_verification_tokens"), "EmailVerificationTokens");
+    assert_eq!(
+        to_struct_name("email_verification_tokens"),
+        "EmailVerificationTokens"
+    );
 }

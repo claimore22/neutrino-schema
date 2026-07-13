@@ -5,27 +5,27 @@
 //! are the built-in implementations using `sqlx`.
 
 mod column;
-mod traits;
-mod table;
 mod helpers;
-#[cfg(feature = "postgres")]
-mod postgres;
-#[cfg(feature = "sqlite")]
-mod sqlite;
 #[cfg(feature = "mysql")]
 mod mysql;
 #[cfg(feature = "mysql")]
 mod mysql_enum;
+#[cfg(feature = "postgres")]
+mod postgres;
+#[cfg(feature = "sqlite")]
+mod sqlite;
+mod table;
+mod traits;
 
 pub use column::*;
-pub use traits::*;
-pub use table::*;
 pub(crate) use helpers::*;
-#[cfg(feature = "postgres")]
-pub use postgres::*;
-#[cfg(feature = "sqlite")]
-pub use sqlite::*;
 #[cfg(feature = "mysql")]
 pub use mysql::*;
 #[cfg(feature = "mysql")]
 pub use mysql_enum::*;
+#[cfg(feature = "postgres")]
+pub use postgres::*;
+#[cfg(feature = "sqlite")]
+pub use sqlite::*;
+pub use table::*;
+pub use traits::*;

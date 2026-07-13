@@ -2,10 +2,10 @@ use clap::Args;
 
 use crate::SchemaIR;
 use crate::cli::url_to_introspector;
-use crate::codegen::{generate_struct, RenderMode};
+use crate::codegen::{RenderMode, generate_struct};
 use crate::config::GeneratorConfig;
+use crate::introspect::TableInfo;
 use crate::ir::RelationStrategy;
-use crate::introspect::{TableInfo};
 
 /// Inspect a database and print generated structs.
 ///
@@ -59,24 +59,37 @@ impl InspectCommand {
             };
             crate::codegen::generate_files(&schema, &cfg)?;
 
-            eprintln!("Generated {} tables to {:?}", schema.tables.len(), cfg.output_dir);
+            eprintln!(
+                "Generated {} tables to {:?}",
+                schema.tables.len(),
+                cfg.output_dir
+            );
             eprintln!("Relations: {}", schema.relations.len());
             for r in &schema.relations {
                 let source = match &r.source {
                     crate::ir::RelationSource::ForeignKey(name) => format!(" (FK: {name})"),
                     crate::ir::RelationSource::NamingHeuristic => " (heuristic)".to_string(),
                 };
-                eprintln!("  {}.{} -> {}.{}{source}", r.from_table, r.from_field, r.to_table, r.to_field);
+                eprintln!(
+                    "  {}.{} -> {}.{}{source}",
+                    r.from_table, r.from_field, r.to_table, r.to_field
+                );
             }
             let constraint_count: usize = schema.tables.iter().map(|t| t.constraints.len()).sum();
             eprintln!("Constraints: {}", constraint_count);
         } else if let Some(table_name) = &self.table {
             let columns = introspector.list_columns(table_name).await?;
-            let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
+            let fields: Vec<_> = columns
+                .iter()
+                .map(|c| introspector.column_to_field(c))
+                .collect();
             let constraints = introspector.list_constraints(table_name).await?;
             // Single table: need to look up the comment separately
             let all_infos = introspector.list_tables_with_info().await?;
-            let comment = all_infos.iter().find(|ti| ti.name == *table_name).and_then(|ti| ti.comment.clone());
+            let comment = all_infos
+                .iter()
+                .find(|ti| ti.name == *table_name)
+                .and_then(|ti| ti.comment.clone());
             let indexes = introspector.list_indexes(table_name).await?;
             let table_ir = crate::ir::TableIR {
                 name: table_name.clone(),
@@ -97,10 +110,18 @@ impl InspectCommand {
             }
             println!();
             println!("Usage:");
-            println!("  neutrino-schema inspect <database_url> <table>      Generate struct for one table");
-            println!("  neutrino-schema inspect <database_url> <table> -c   Include type/nullable comments");
-            println!("  neutrino-schema inspect <database_url> --all         Generate all tables to generated/");
-            println!("  neutrino-schema inspect <database_url> --all -c      All tables with debug comments");
+            println!(
+                "  neutrino-schema inspect <database_url> <table>      Generate struct for one table"
+            );
+            println!(
+                "  neutrino-schema inspect <database_url> <table> -c   Include type/nullable comments"
+            );
+            println!(
+                "  neutrino-schema inspect <database_url> --all         Generate all tables to generated/"
+            );
+            println!(
+                "  neutrino-schema inspect <database_url> --all -c      All tables with debug comments"
+            );
         }
 
         Ok(())

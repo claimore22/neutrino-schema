@@ -19,7 +19,10 @@ use crate::codegen::RenderMode;
 #[cfg_attr(feature = "cli", derive(serde::Serialize, serde::Deserialize))]
 pub struct GeneratorConfig {
     /// Directory to write generated `.rs` files and `mod.rs` into.
-    #[cfg_attr(feature = "cli", serde(default = "default_output_dir", rename = "output"))]
+    #[cfg_attr(
+        feature = "cli",
+        serde(default = "default_output_dir", rename = "output")
+    )]
     pub output_dir: PathBuf,
 
     /// Module name used in the generated `mod.rs` header comment.

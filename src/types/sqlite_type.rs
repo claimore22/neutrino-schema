@@ -26,10 +26,16 @@ impl SqliteType {
     /// Type names are case-insensitive and may carry a parenthesised
     /// width (e.g. `"VARCHAR(255)"` → [`SqliteType::Text`]).
     pub fn map_sqlite_type(t: &str) -> Self {
-        let base = t.trim().split('(').next().unwrap_or(t).trim().to_lowercase();
+        let base = t
+            .trim()
+            .split('(')
+            .next()
+            .unwrap_or(t)
+            .trim()
+            .to_lowercase();
         match base.as_str() {
-            "int" | "integer" | "tinyint" | "smallint" | "mediumint" | "bigint"
-            | "int2" | "int8" | "boolean" | "bool" => Self::Integer,
+            "int" | "integer" | "tinyint" | "smallint" | "mediumint" | "bigint" | "int2"
+            | "int8" | "boolean" | "bool" => Self::Integer,
             "real" | "double" | "double precision" | "float" | "number" => Self::Real,
             // DECIMAL/NUMERIC in SQLite are not enforced — map to Unknown
             "numeric" | "decimal" | "dec" => Self::Unknown(base),
@@ -93,12 +99,12 @@ pub fn sqlite_to_db_type(ty: SqliteType) -> DbType {
 /// ```
 pub fn sqlite_declared_to_db_type(declared: &str) -> DbType {
     match declared.trim().to_uppercase().as_str() {
-        "INT" | "INTEGER" | "INT4"       => return DbType::Integer,
-        "TINYINT"                         => return DbType::SmallInt,
-        "SMALLINT" | "INT2"               => return DbType::SmallInt,
-        "MEDIUMINT"                       => return DbType::Integer,
-        "BIGINT" | "INT8"                 => return DbType::BigInt,
-        "BOOLEAN" | "BOOL"                => return DbType::Boolean,
+        "INT" | "INTEGER" | "INT4" => return DbType::Integer,
+        "TINYINT" => return DbType::SmallInt,
+        "SMALLINT" | "INT2" => return DbType::SmallInt,
+        "MEDIUMINT" => return DbType::Integer,
+        "BIGINT" | "INT8" => return DbType::BigInt,
+        "BOOLEAN" | "BOOL" => return DbType::Boolean,
         _ => {}
     }
     let sqlite_ty = SqliteType::map_sqlite_type(declared);

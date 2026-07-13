@@ -8,7 +8,9 @@ pub struct ConstraintIR {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConstraintKind {
-    PrimaryKey { columns: Vec<String> },
+    PrimaryKey {
+        columns: Vec<String>,
+    },
     ForeignKey {
         columns: Vec<String>,
         referenced_table: String,
@@ -17,8 +19,12 @@ pub enum ConstraintKind {
         on_update: ReferentialAction,
         match_type: Option<MatchType>,
     },
-    Unique { columns: Vec<String> },
-    Check { expression: String },
+    Unique {
+        columns: Vec<String>,
+    },
+    Check {
+        expression: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

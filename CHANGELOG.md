@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented here.
 
+## [0.5.0] - 2026-07-13
+
+### Added
+- **IndexIR introspection** for PostgreSQL, MySQL, and SQLite — every index
+  (unique, expression, partial, multi-column) is captured as `IndexIR` in
+  the schema IR.
+- **Expanded enum support** — ENUM columns on PostgreSQL and MySQL are now
+  introspected as proper EnumIR with named variants; codegen derives
+  `EnumString`/`Display` and uses the enum type instead of raw strings.
+- **ConstraintIR for all backends** — FOREIGN KEY, UNIQUE, PRIMARY KEY, and CHECK
+  constraints are introspected into a unified `ConstraintIR` per table.
+- **Cross-backend constraint parity** — the same suite of CHECK constraints now
+  works on PostgreSQL, MySQL, and SQLite (MySQL filtered via CHECK_CONSTRAINTS
+  + TABLE_CONSTRAINTS JOIN).
+- **`parse_referential_action` shared helper** — extracted from `postgres.rs`
+  into `introspect/helpers.rs` for use by all backends.
+- **Level 4A syn validation** — generated Rust code is parsed with `syn`
+  during the roundtrip test to catch syntax errors before cargo execution.
+- **`sanitize_identifier()` / `deduplicate_identifier()`** in `util::naming` —
+  sanitizes field/struct names for safe Rust codegen (removes leading digits,
+  non-alphanumeric chars, keyword collisions).
+
+### Fixed
+- **FK heuristic suppression** — `infer_relations_heuristic` now skips relations
+  already covered by a FOREIGN KEY constraint, avoiding duplicate relations.
+- **Comment injection via doc comments** — multiline database comments are now
+  escaped line-by-line with `///` prefix instead of a single `///` block,
+  preventing injected Rust syntax.
+- **PG enum/array column types** — `list_columns` uses `udt_name` for
+  `USER-DEFINED` (enum) and `ARRAY` types, resolving to actual type names.
+- **PG expression index parsing** — replaced `pg_get_expr(i.indexprs)` comma-split
+  with per-key `pg_get_indexdef(indexrelid, kpno, true)` via LATERAL join,
+  robust against commas inside function arguments.
+- **CLI config priority** — `generate` now reads `[generator]` section from
+  `neutrino-schema.toml` with CLI > config > default priority.
+- **`--table` validation** — CLI checks that requested table names exist before
+  introspecting, with a clear error message.
+- **SQLite unique constraint count** — filter by `origin='u'` to correctly
+  report user-defined unique constraints vs internal unique indexes.
+- **`sqlite_full_pipeline` test** — updated to expect heuristic relations are
+  suppressed when FK metadata already covers the same pair.
+
+### Changed
+- **MySQL unique constraints** — documented cross-backend difference: MySQL/InnoDB
+  reports all unique indexes as both `ConstraintIR::Unique` and `IndexIR` since
+  they are physically the same object.
+
 ## [0.3.1] - 2026-07-07
 
 ### Changed

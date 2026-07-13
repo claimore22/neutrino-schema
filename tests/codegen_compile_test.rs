@@ -1,14 +1,15 @@
+#![allow(clippy::unwrap_used)]
 mod common;
 
 #[cfg(feature = "sqlite")]
 #[tokio::test]
 async fn codegen_compile_sqlite_fixtures() {
     use neutrino_schema::{
-        codegen::{generate_files_with_registry, RenderMode},
+        RelationStrategy, SchemaIR,
+        codegen::{RenderMode, generate_files_with_registry},
         config::GeneratorConfig,
         introspect::DatabaseIntrospector,
         types::TypeRegistry,
-        RelationStrategy, SchemaIR,
     };
     use sqlx::sqlite::SqlitePoolOptions;
 
@@ -33,15 +34,17 @@ async fn codegen_compile_sqlite_fixtures() {
         }
     }
 
-    let introspector =
-        neutrino_schema::introspect::SqliteIntrospector::new(pool);
+    let introspector = neutrino_schema::introspect::SqliteIntrospector::new(pool);
 
     // ── 2. Introspect ─────────────────────────────────────────────────
     let table_infos = introspector.list_tables_with_info().await.unwrap();
     let mut tables = Vec::new();
     for info in &table_infos {
         let columns = introspector.list_columns(&info.name).await.unwrap();
-        let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
+        let fields: Vec<_> = columns
+            .iter()
+            .map(|c| introspector.column_to_field(c))
+            .collect();
         let constraints = introspector.list_constraints(&info.name).await.unwrap();
         tables.push(neutrino_schema::ir::TableIR {
             name: info.name.to_string(),

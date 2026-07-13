@@ -25,7 +25,10 @@ pub(crate) async fn introspect_tables(
     let mut tables = Vec::new();
     for info in table_infos {
         let columns = introspector.list_columns(&info.name).await?;
-        let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
+        let fields: Vec<_> = columns
+            .iter()
+            .map(|c| introspector.column_to_field(c))
+            .collect();
         let constraints = introspector.list_constraints(&info.name).await?;
         let indexes = introspector.list_indexes(&info.name).await?;
         tables.push(crate::ir::TableIR {
@@ -105,7 +108,9 @@ pub(crate) async fn introspect_schema(
 
 /// Create an appropriate introspector by detecting the database provider
 /// from the URL scheme.
-pub async fn url_to_introspector(url: &str) -> anyhow::Result<Box<dyn crate::introspect::DatabaseIntrospector>> {
+pub async fn url_to_introspector(
+    url: &str,
+) -> anyhow::Result<Box<dyn crate::introspect::DatabaseIntrospector>> {
     use crate::config::detect_provider;
 
     match detect_provider(url) {
@@ -124,7 +129,9 @@ pub async fn url_to_introspector(url: &str) -> anyhow::Result<Box<dyn crate::int
 
 /// Connect to a PostgreSQL database.
 #[cfg(feature = "postgres")]
-pub async fn connect_postgres(url: &str) -> anyhow::Result<Box<dyn crate::introspect::DatabaseIntrospector>> {
+pub async fn connect_postgres(
+    url: &str,
+) -> anyhow::Result<Box<dyn crate::introspect::DatabaseIntrospector>> {
     let pool = sqlx::postgres::PgPoolOptions::new()
         .max_connections(1)
         .connect(url)
@@ -134,26 +141,34 @@ pub async fn connect_postgres(url: &str) -> anyhow::Result<Box<dyn crate::intros
 
 /// Stub — PostgreSQL support not compiled in.
 #[cfg(not(feature = "postgres"))]
-pub async fn connect_postgres(_url: &str) -> anyhow::Result<Box<dyn crate::introspect::DatabaseIntrospector>> {
+pub async fn connect_postgres(
+    _url: &str,
+) -> anyhow::Result<Box<dyn crate::introspect::DatabaseIntrospector>> {
     anyhow::bail!("PostgreSQL support not enabled (enable the `postgres` feature)")
 }
 
 /// Connect to a SQLite database.
 #[cfg(feature = "sqlite")]
-pub async fn connect_sqlite(url: &str) -> anyhow::Result<Box<dyn crate::introspect::DatabaseIntrospector>> {
+pub async fn connect_sqlite(
+    url: &str,
+) -> anyhow::Result<Box<dyn crate::introspect::DatabaseIntrospector>> {
     let pool = sqlx::sqlite::SqlitePool::connect(url).await?;
     Ok(Box::new(crate::introspect::SqliteIntrospector::new(pool)))
 }
 
 /// Stub — SQLite support not compiled in.
 #[cfg(not(feature = "sqlite"))]
-pub async fn connect_sqlite(_url: &str) -> anyhow::Result<Box<dyn crate::introspect::DatabaseIntrospector>> {
+pub async fn connect_sqlite(
+    _url: &str,
+) -> anyhow::Result<Box<dyn crate::introspect::DatabaseIntrospector>> {
     anyhow::bail!("SQLite support not enabled (enable the `sqlite` feature)")
 }
 
 /// Connect to a MySQL database.
 #[cfg(feature = "mysql")]
-pub async fn connect_mysql(url: &str) -> anyhow::Result<Box<dyn crate::introspect::DatabaseIntrospector>> {
+pub async fn connect_mysql(
+    url: &str,
+) -> anyhow::Result<Box<dyn crate::introspect::DatabaseIntrospector>> {
     let pool = sqlx::mysql::MySqlPoolOptions::new()
         .max_connections(1)
         .connect(url)
@@ -163,7 +178,9 @@ pub async fn connect_mysql(url: &str) -> anyhow::Result<Box<dyn crate::introspec
 
 /// Stub — MySQL support not compiled in.
 #[cfg(not(feature = "mysql"))]
-pub async fn connect_mysql(_url: &str) -> anyhow::Result<Box<dyn crate::introspect::DatabaseIntrospector>> {
+pub async fn connect_mysql(
+    _url: &str,
+) -> anyhow::Result<Box<dyn crate::introspect::DatabaseIntrospector>> {
     anyhow::bail!("MySQL support not enabled (enable the `mysql` feature)")
 }
 

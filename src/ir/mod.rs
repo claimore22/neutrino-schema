@@ -5,17 +5,17 @@
 //! or from foreign key constraints ([`ConstraintKind::ForeignKey`]).
 
 mod constraint;
+mod enum_def;
 mod field;
+mod index;
 mod relation;
 mod schema;
 mod table;
-mod enum_def;
-mod index;
 
 pub use constraint::*;
+pub use enum_def::*;
 pub use field::*;
+pub use index::*;
 pub use relation::*;
 pub use schema::*;
 pub use table::*;
-pub use enum_def::*;
-pub use index::*;

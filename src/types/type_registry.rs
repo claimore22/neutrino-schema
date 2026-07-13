@@ -88,9 +88,7 @@ impl TypeRegistry {
         if let DbType::Unknown(db_type) = ty {
             let mut warned = self.warned_unknown.lock().expect("poisoned lock");
             if warned.insert(db_type.clone()) {
-                eprintln!(
-                    "warning: unsupported database type '{db_type}', mapped to String"
-                );
+                eprintln!("warning: unsupported database type '{db_type}', mapped to String");
             }
         }
         default
@@ -145,10 +143,7 @@ impl TypeRegistry {
             }
             DbType::Timestamp => {
                 if cfg!(feature = "chrono") {
-                    RustType::with_import(
-                        "chrono::NaiveDateTime",
-                        "use chrono::NaiveDateTime;",
-                    )
+                    RustType::with_import("chrono::NaiveDateTime", "use chrono::NaiveDateTime;")
                 } else {
                     RustType::bare("String")
                 }

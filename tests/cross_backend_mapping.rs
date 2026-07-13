@@ -1,8 +1,9 @@
+#![allow(clippy::unwrap_used, unused_variables)]
 mod common;
 
 use std::collections::HashMap;
 
-use common::migrations_common::{load_migration_sql, MigrationBackend};
+use common::migrations_common::{MigrationBackend, load_migration_sql};
 use neutrino_schema::introspect::DatabaseIntrospector;
 use neutrino_schema::types::DbType;
 use neutrino_schema::{ConstraintIR, SchemaIR};
@@ -18,8 +19,11 @@ fn database_url() -> Option<String> {
 async fn build_schema_sqlite(db_suffix: &str) -> SchemaIR {
     use sqlx::SqlitePool;
 
-    let pool = SqlitePool::connect(":memory:").await.expect("failed to connect to in-memory SQLite pool");
-    let sql = load_migration_sql(MigrationBackend::Sqlite).expect("load_migration_sql failed for Sqlite");
+    let pool = SqlitePool::connect(":memory:")
+        .await
+        .expect("failed to connect to in-memory SQLite pool");
+    let sql =
+        load_migration_sql(MigrationBackend::Sqlite).expect("load_migration_sql failed for Sqlite");
     common::migrations_common::execute_sqlite_batch(&pool, &sql)
         .await
         .expect("execute_sqlite_batch failed");
@@ -43,7 +47,8 @@ async fn build_schema_postgres(db_name: &str) -> Option<SchemaIR> {
 
     let fixture_url = format!("{}/{}", url.trim_end_matches('/'), db_name);
     let pool = PgPool::connect(&fixture_url).await.ok()?;
-    let sql = load_migration_sql(MigrationBackend::Postgres).expect("load_migration_sql failed for Postgres");
+    let sql = load_migration_sql(MigrationBackend::Postgres)
+        .expect("load_migration_sql failed for Postgres");
     let sql: &'static str = Box::leak(sql.into_boxed_str());
     for stmt in sql.split(';') {
         let trimmed = stmt.trim();
@@ -70,7 +75,8 @@ async fn build_schema_mysql(db_name: &str) -> Option<SchemaIR> {
 
     let fixture_url = format!("{}/{}", url.trim_end_matches('/'), db_name);
     let pool = MySqlPool::connect(&fixture_url).await.ok()?;
-    let sql = load_migration_sql(MigrationBackend::Mysql).expect("load_migration_sql failed for Mysql");
+    let sql =
+        load_migration_sql(MigrationBackend::Mysql).expect("load_migration_sql failed for Mysql");
     let sql: &'static str = Box::leak(sql.into_boxed_str());
     for stmt in sql.split(';') {
         let trimmed = stmt.trim();
@@ -82,18 +88,25 @@ async fn build_schema_mysql(db_name: &str) -> Option<SchemaIR> {
     Some(build_schema_from(introspector).await)
 }
 
-async fn build_schema_from(
-    introspector: impl DatabaseIntrospector,
-) -> SchemaIR {
-    let table_infos = introspector.list_tables_with_info().await.expect("list_tables failed");
+async fn build_schema_from(introspector: impl DatabaseIntrospector) -> SchemaIR {
+    let table_infos = introspector
+        .list_tables_with_info()
+        .await
+        .expect("list_tables failed");
     let mut tables = Vec::new();
     for table_info in table_infos {
-        let columns = introspector.list_columns(&table_info.name).await.expect("list_columns failed");
+        let columns = introspector
+            .list_columns(&table_info.name)
+            .await
+            .expect("list_columns failed");
         let fields: Vec<_> = columns
             .iter()
             .map(|c| introspector.column_to_field(c))
             .collect();
-        let constraints = introspector.list_constraints(&table_info.name).await.unwrap();
+        let constraints = introspector
+            .list_constraints(&table_info.name)
+            .await
+            .unwrap();
         tables.push(neutrino_schema::ir::TableIR {
             name: table_info.name.clone(),
             fields,
@@ -110,7 +123,10 @@ fn field_map(schema: &SchemaIR) -> HashMap<(String, String), (DbType, bool)> {
     let mut m = HashMap::new();
     for table in &schema.tables {
         for f in &table.fields {
-            m.insert((table.name.clone(), f.name.clone()), (f.ty.clone(), f.nullable));
+            m.insert(
+                (table.name.clone(), f.name.clone()),
+                (f.ty.clone(), f.nullable),
+            );
         }
     }
     m
@@ -121,7 +137,10 @@ fn fk_map(schema: &SchemaIR) -> HashMap<String, Vec<&neutrino_schema::ir::Constr
     let mut m: HashMap<String, Vec<_>> = HashMap::new();
     for table in &schema.tables {
         for c in &table.constraints {
-            if matches!(c.kind, neutrino_schema::ir::ConstraintKind::ForeignKey { .. }) {
+            if matches!(
+                c.kind,
+                neutrino_schema::ir::ConstraintKind::ForeignKey { .. }
+            ) {
                 m.entry(table.name.clone()).or_default().push(c);
             }
         }
@@ -168,12 +187,10 @@ async fn pg_mysql_type_equivalence() {
         (("users", "is_verified"), DbType::SmallInt),
         (("users", "is_active"), DbType::SmallInt),
         (("users", "remember_token"), DbType::String),
-
         // oauth_refresh_tokens
         (("oauth_refresh_tokens", "id"), DbType::BigInt),
         (("oauth_refresh_tokens", "token"), DbType::Binary),
         (("oauth_refresh_tokens", "revoked"), DbType::Boolean),
-
         // user_sessions
         (("user_sessions", "id"), DbType::BigInt),
         (("user_sessions", "is_revoked"), DbType::Boolean),
@@ -202,21 +219,73 @@ async fn pg_mysql_type_equivalence() {
     // Known-different columns
     let differences: &[((&str, &str), DbType, DbType)] = &[
         (("users", "public_id"), DbType::Uuid, DbType::Binary),
-        (("users", "created_at"), DbType::TimestampTz, DbType::Timestamp),
-        (("users", "updated_at"), DbType::TimestampTz, DbType::Timestamp),
-        (("users", "deleted_at"), DbType::TimestampTz, DbType::Timestamp),
+        (
+            ("users", "created_at"),
+            DbType::TimestampTz,
+            DbType::Timestamp,
+        ),
+        (
+            ("users", "updated_at"),
+            DbType::TimestampTz,
+            DbType::Timestamp,
+        ),
+        (
+            ("users", "deleted_at"),
+            DbType::TimestampTz,
+            DbType::Timestamp,
+        ),
         (("users", "last_login_ip"), DbType::Inet, DbType::Binary),
-        (("users", "email_verified_at"), DbType::TimestampTz, DbType::Timestamp),
-        (("users", "last_login_at"), DbType::TimestampTz, DbType::Timestamp),
+        (
+            ("users", "email_verified_at"),
+            DbType::TimestampTz,
+            DbType::Timestamp,
+        ),
+        (
+            ("users", "last_login_at"),
+            DbType::TimestampTz,
+            DbType::Timestamp,
+        ),
         (("user_sessions", "metadata"), DbType::Jsonb, DbType::Json),
-        (("user_sessions", "created_at"), DbType::TimestampTz, DbType::Timestamp),
-        (("user_sessions", "updated_at"), DbType::TimestampTz, DbType::Timestamp),
-        (("user_sessions", "last_activity"), DbType::TimestampTz, DbType::Timestamp),
-        (("user_sessions", "expires_at"), DbType::TimestampTz, DbType::Timestamp),
-        (("user_sessions", "revoked_at"), DbType::TimestampTz, DbType::Timestamp),
-        (("user_sessions", "deleted_at"), DbType::TimestampTz, DbType::Timestamp),
-        (("user_sessions", "ip_address"), DbType::Inet, DbType::Binary),
-        (("oauth_refresh_tokens", "expires_at"), DbType::TimestampTz, DbType::Timestamp),
+        (
+            ("user_sessions", "created_at"),
+            DbType::TimestampTz,
+            DbType::Timestamp,
+        ),
+        (
+            ("user_sessions", "updated_at"),
+            DbType::TimestampTz,
+            DbType::Timestamp,
+        ),
+        (
+            ("user_sessions", "last_activity"),
+            DbType::TimestampTz,
+            DbType::Timestamp,
+        ),
+        (
+            ("user_sessions", "expires_at"),
+            DbType::TimestampTz,
+            DbType::Timestamp,
+        ),
+        (
+            ("user_sessions", "revoked_at"),
+            DbType::TimestampTz,
+            DbType::Timestamp,
+        ),
+        (
+            ("user_sessions", "deleted_at"),
+            DbType::TimestampTz,
+            DbType::Timestamp,
+        ),
+        (
+            ("user_sessions", "ip_address"),
+            DbType::Inet,
+            DbType::Binary,
+        ),
+        (
+            ("oauth_refresh_tokens", "expires_at"),
+            DbType::TimestampTz,
+            DbType::Timestamp,
+        ),
     ];
 
     for &((ref table, ref col), ref pg_ty, ref mysql_ty) in differences {
@@ -276,9 +345,17 @@ async fn sqlite_common_types() {
         let (ty, n) = sqlite_map.get(&key).unwrap();
         assert_eq!(*n, nullable, "SQLite {table}.{col} nullable mismatch");
         if *col == "public_id" {
-            assert_eq!(*ty, DbType::Binary, "SQLite {table}.{col}: expected Binary, got {ty:?}");
+            assert_eq!(
+                *ty,
+                DbType::Binary,
+                "SQLite {table}.{col}: expected Binary, got {ty:?}"
+            );
         } else {
-            assert_eq!(*ty, DbType::String, "SQLite {table}.{col}: expected String, got {ty:?}");
+            assert_eq!(
+                *ty,
+                DbType::String,
+                "SQLite {table}.{col}: expected String, got {ty:?}"
+            );
         }
     }
 }
@@ -318,7 +395,7 @@ async fn fk_parity_across_backends() {
     // Self-referencing FK on oauth_refresh_tokens in all backends
     let has_self_fk = |fk_map: &HashMap<String, Vec<_>>, table: &str| -> bool {
         fk_map.get(table).map_or(false, |fks| {
-            fks.iter().any(|c:&&ConstraintIR| {
+            fks.iter().any(|c: &&ConstraintIR| {
                 matches!(&c.kind, neutrino_schema::ir::ConstraintKind::ForeignKey {
                     referenced_table, ..
                 } if referenced_table == table)
@@ -346,7 +423,7 @@ async fn fk_parity_across_backends() {
     // Composite FK: user_sessions -> user_trusted_devices
     let has_composite = |fk_map: &HashMap<String, Vec<_>>| -> bool {
         fk_map.get("user_sessions").map_or(false, |fks| {
-            fks.iter().any(|c:&&ConstraintIR| {
+            fks.iter().any(|c: &&ConstraintIR| {
                 matches!(&c.kind, neutrino_schema::ir::ConstraintKind::ForeignKey {
                     columns, referenced_table, referenced_columns, ..
                 } if columns.len() == 2
@@ -357,10 +434,16 @@ async fn fk_parity_across_backends() {
     };
 
     if let Some(ref pg_fk) = pg_fk {
-        assert!(has_composite(pg_fk), "PG: expected composite FK on user_sessions");
+        assert!(
+            has_composite(pg_fk),
+            "PG: expected composite FK on user_sessions"
+        );
     }
     if let Some(ref mysql_fk) = mysql_fk {
-        assert!(has_composite(mysql_fk), "MySQL: expected composite FK on user_sessions");
+        assert!(
+            has_composite(mysql_fk),
+            "MySQL: expected composite FK on user_sessions"
+        );
     }
 
     if let Some(pg) = pg {

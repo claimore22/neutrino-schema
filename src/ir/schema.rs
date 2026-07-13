@@ -62,8 +62,7 @@ impl SchemaIR {
             }
         }
 
-        let enum_names: HashSet<&str> =
-            self.enums.iter().map(|e| e.rust_name.as_str()).collect();
+        let enum_names: HashSet<&str> = self.enums.iter().map(|e| e.rust_name.as_str()).collect();
 
         for table in &self.tables {
             for field in &table.fields {
@@ -110,7 +109,10 @@ impl SchemaIR {
         for table in tables {
             for field in &table.fields {
                 // Skip fields already covered by an FK constraint — FK metadata is authoritative
-                if existing.iter().any(|r| r.from_table == table.name && r.from_field == field.name) {
+                if existing
+                    .iter()
+                    .any(|r| r.from_table == table.name && r.from_field == field.name)
+                {
                     continue;
                 }
 
@@ -156,10 +158,16 @@ impl std::fmt::Display for SchemaError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             SchemaError::MissingEnum(name) => {
-                write!(f, "Schema references enum \"{name}\" but no matching EnumIR was found")
+                write!(
+                    f,
+                    "Schema references enum \"{name}\" but no matching EnumIR was found"
+                )
             }
             SchemaError::DuplicateEnum(name) => {
-                write!(f, "Duplicate enum Rust name \"{name}\" — enums must have unique names")
+                write!(
+                    f,
+                    "Duplicate enum Rust name \"{name}\" — enums must have unique names"
+                )
             }
         }
     }

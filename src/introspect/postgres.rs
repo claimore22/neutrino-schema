@@ -2,9 +2,12 @@ use std::collections::HashMap;
 
 use sqlx::{PgPool, Row};
 
-use crate::ir::{ConstraintIR, ConstraintKind, EnumIR, EnumVariantIR, FieldIR, IndexEntryIR, IndexIR, IndexKind, MatchType};
-use crate::introspect::{parse_referential_action, Column, TableInfo};
 use crate::introspect::DatabaseIntrospector;
+use crate::introspect::{Column, TableInfo, parse_referential_action};
+use crate::ir::{
+    ConstraintIR, ConstraintKind, EnumIR, EnumVariantIR, FieldIR, IndexEntryIR, IndexIR, IndexKind,
+    MatchType,
+};
 use crate::types::{self, PgType};
 use crate::util::naming::to_struct_name;
 
@@ -22,7 +25,6 @@ impl PostgresIntrospector {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
-
 }
 
 #[async_trait::async_trait]
@@ -55,10 +57,13 @@ impl DatabaseIntrospector for PostgresIntrospector {
 
         let rows: Vec<TableInfo> = rows
             .into_iter()
-            .filter_map(|r| r.get::<Option<String>, _>("table_name").map(|name| TableInfo {
-                name,
-                comment: r.get("table_comment"),
-            }))
+            .filter_map(|r| {
+                r.get::<Option<String>, _>("table_name")
+                    .map(|name| TableInfo {
+                        name,
+                        comment: r.get("table_comment"),
+                    })
+            })
             .collect();
 
         Ok(rows)
@@ -356,7 +361,11 @@ impl DatabaseIntrospector for PostgresIntrospector {
             let idx_type: String = r.get("index_type");
             let kind = pg_index_kind(&idx_type);
             let predicate: Option<String> = r.get("predicate");
-            let predicate = if predicate.as_deref() == Some("") { None } else { predicate };
+            let predicate = if predicate.as_deref() == Some("") {
+                None
+            } else {
+                predicate
+            };
 
             let indkey_str: String = r.get("indkey_str");
             let indoption_str: String = r.get("indoption_str");
@@ -450,8 +459,12 @@ struct ConstraintBuilder {
 impl ConstraintBuilder {
     fn build(self) -> Option<ConstraintIR> {
         let kind = match self.constraint_type.as_str() {
-            "PRIMARY KEY" => ConstraintKind::PrimaryKey { columns: self.columns },
-            "UNIQUE" => ConstraintKind::Unique { columns: self.columns },
+            "PRIMARY KEY" => ConstraintKind::PrimaryKey {
+                columns: self.columns,
+            },
+            "UNIQUE" => ConstraintKind::Unique {
+                columns: self.columns,
+            },
             "FOREIGN KEY" => ConstraintKind::ForeignKey {
                 columns: self.columns,
                 referenced_table: self.ref_table.unwrap_or_default(),
@@ -465,6 +478,9 @@ impl ConstraintBuilder {
             },
             _ => return None,
         };
-        Some(ConstraintIR { name: self.name, kind })
+        Some(ConstraintIR {
+            name: self.name,
+            kind,
+        })
     }
 }

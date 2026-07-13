@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used)]
 mod common;
 
 /// Level 4A — Generated models actually query the database.
@@ -14,7 +15,7 @@ mod common;
 #[tokio::test]
 async fn generated_models_roundtrip_sqlite() {
     use neutrino_schema::{
-        codegen::{generate_struct, RenderMode},
+        codegen::{RenderMode, generate_struct},
         introspect::DatabaseIntrospector,
     };
     use sqlx::sqlite::SqlitePoolOptions;
@@ -36,19 +37,30 @@ async fn generated_models_roundtrip_sqlite() {
     for stmt in sql.split(';') {
         let trimmed = stmt.trim();
         if !trimmed.is_empty() {
-            sqlx::query(trimmed).execute(&pool).await.expect("failed to execute fixture SQL statement");
+            sqlx::query(trimmed)
+                .execute(&pool)
+                .await
+                .expect("failed to execute fixture SQL statement");
         }
     }
 
-    let introspector =
-        neutrino_schema::introspect::SqliteIntrospector::new(pool);
+    let introspector = neutrino_schema::introspect::SqliteIntrospector::new(pool);
 
     // ── 2. Introspect ─────────────────────────────────────────────────
-    let table_infos = introspector.list_tables_with_info().await.expect("list_tables failed");
+    let table_infos = introspector
+        .list_tables_with_info()
+        .await
+        .expect("list_tables failed");
     let mut struct_strs = Vec::new();
     for info in &table_infos {
-        let columns = introspector.list_columns(&info.name).await.expect("list_columns failed");
-        let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
+        let columns = introspector
+            .list_columns(&info.name)
+            .await
+            .expect("list_columns failed");
+        let fields: Vec<_> = columns
+            .iter()
+            .map(|c| introspector.column_to_field(c))
+            .collect();
         let table = neutrino_schema::ir::TableIR {
             name: info.name.to_string(),
             fields,
@@ -106,11 +118,13 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
     .expect("failed to write temp file");
 
     // src/lib.rs
-    std::fs::write(tmp.join("src").join("lib.rs"), "pub mod models;\n").expect("failed to write temp file");
+    std::fs::write(tmp.join("src").join("lib.rs"), "pub mod models;\n")
+        .expect("failed to write temp file");
 
     // src/models.rs
     let models_content = struct_strs.join("\n");
-    std::fs::write(tmp.join("src").join("models.rs"), models_content).expect("failed to write temp file");
+    std::fs::write(tmp.join("src").join("models.rs"), models_content)
+        .expect("failed to write temp file");
 
     // ── 4. Write roundtrip test ───────────────────────────────────────
     // We embed the fixture SQL (schema + seed data) directly in the test
@@ -326,7 +340,8 @@ async fn all_types_roundtrip() {{
 "##,
     );
 
-    std::fs::write(tmp.join("tests").join("roundtrip.rs"), roundtrip_test).expect("failed to write temp file");
+    std::fs::write(tmp.join("tests").join("roundtrip.rs"), roundtrip_test)
+        .expect("failed to write temp file");
 
     // ── 5. cargo test on the generated project ─────────────────────────
     let status = std::process::Command::new("cargo")

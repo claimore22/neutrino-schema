@@ -54,7 +54,10 @@ fn round_trip() {
     let db = parsed.databases.get("default").expect("default db");
     assert_eq!(db.url.as_deref(), Some("postgres://localhost/test"));
     assert_eq!(db.provider, Some(DatabaseProvider::Postgres));
-    assert_eq!(db.output.as_deref(), Some(PathBuf::from("custom_output").as_path()));
+    assert_eq!(
+        db.output.as_deref(),
+        Some(PathBuf::from("custom_output").as_path())
+    );
 }
 
 #[test]
@@ -87,12 +90,30 @@ output = "src/types"
 fn detect_provider_from_url() {
     use neutrino_schema::config::detect_provider;
 
-    assert_eq!(detect_provider("postgres://localhost/db"), Some(DatabaseProvider::Postgres));
-    assert_eq!(detect_provider("postgresql://localhost/db"), Some(DatabaseProvider::Postgres));
-    assert_eq!(detect_provider("mysql://localhost/db"), Some(DatabaseProvider::MySql));
-    assert_eq!(detect_provider("mariadb://localhost/db"), Some(DatabaseProvider::MySql));
-    assert_eq!(detect_provider("sqlite:./db.sqlite"), Some(DatabaseProvider::Sqlite));
-    assert_eq!(detect_provider("sqlite://localhost/db"), Some(DatabaseProvider::Sqlite));
+    assert_eq!(
+        detect_provider("postgres://localhost/db"),
+        Some(DatabaseProvider::Postgres)
+    );
+    assert_eq!(
+        detect_provider("postgresql://localhost/db"),
+        Some(DatabaseProvider::Postgres)
+    );
+    assert_eq!(
+        detect_provider("mysql://localhost/db"),
+        Some(DatabaseProvider::MySql)
+    );
+    assert_eq!(
+        detect_provider("mariadb://localhost/db"),
+        Some(DatabaseProvider::MySql)
+    );
+    assert_eq!(
+        detect_provider("sqlite:./db.sqlite"),
+        Some(DatabaseProvider::Sqlite)
+    );
+    assert_eq!(
+        detect_provider("sqlite://localhost/db"),
+        Some(DatabaseProvider::Sqlite)
+    );
     assert_eq!(detect_provider("oracle://localhost/db"), None);
     assert_eq!(detect_provider(""), None);
 }
@@ -167,6 +188,9 @@ fn multiple_databases() {
     assert_eq!(default.url.as_deref(), Some("postgres://localhost/app"));
 
     let analytics = &parsed.databases["analytics"];
-    assert_eq!(analytics.url.as_deref(), Some("mysql://localhost/analytics"));
+    assert_eq!(
+        analytics.url.as_deref(),
+        Some("mysql://localhost/analytics")
+    );
     assert_eq!(analytics.provider, Some(DatabaseProvider::MySql));
 }

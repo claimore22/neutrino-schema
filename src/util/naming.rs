@@ -62,7 +62,13 @@ pub fn enum_variant_name(input: &str) -> String {
 pub fn sanitize_identifier(input: &str) -> String {
     let sanitized: String = input
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .skip_while(|c| c.is_ascii_digit())
         .collect();
 

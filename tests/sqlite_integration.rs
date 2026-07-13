@@ -1,6 +1,8 @@
+#![allow(clippy::unwrap_used, unused)]
+
 use neutrino_schema::{
-    introspect::{DatabaseIntrospector, SqliteIntrospector},
     RelationStrategy, SchemaIR,
+    introspect::{DatabaseIntrospector, SqliteIntrospector},
 };
 
 /// Helper: create an in-memory SQLite DB with test tables, returns the
@@ -42,12 +44,10 @@ async fn setup_introspector() -> SqliteIntrospector {
     .await
     .expect("create posts table");
 
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS sqlite_sequence(name,seq)",
-    )
-    .execute(&pool)
-    .await
-    .ok();
+    sqlx::query("CREATE TABLE IF NOT EXISTS sqlite_sequence(name,seq)")
+        .execute(&pool)
+        .await
+        .ok();
 
     SqliteIntrospector::new(pool)
 }
@@ -55,7 +55,10 @@ async fn setup_introspector() -> SqliteIntrospector {
 #[tokio::test]
 async fn sqlite_list_tables() {
     let introspector = setup_introspector().await;
-    let table_infos = introspector.list_tables_with_info().await.expect("list tables");
+    let table_infos = introspector
+        .list_tables_with_info()
+        .await
+        .expect("list tables");
     let tables: Vec<String> = table_infos.iter().map(|ti| ti.name.clone()).collect();
     assert!(tables.contains(&"users".to_string()));
     assert!(tables.contains(&"posts".to_string()));
@@ -66,7 +69,10 @@ async fn sqlite_list_tables() {
 #[tokio::test]
 async fn sqlite_list_columns() {
     let introspector = setup_introspector().await;
-    let columns = introspector.list_columns("users").await.expect("list columns");
+    let columns = introspector
+        .list_columns("users")
+        .await
+        .expect("list columns");
 
     let col_names: Vec<_> = columns.iter().map(|c| c.column_name.as_str()).collect();
     assert!(col_names.contains(&"id"));
@@ -88,16 +94,25 @@ async fn sqlite_list_columns() {
     assert!(!email_col.nullable, "email has explicit NOT NULL");
 
     // full_name has no NOT NULL → nullable
-    let name_col = columns.iter().find(|c| c.column_name == "full_name").unwrap();
+    let name_col = columns
+        .iter()
+        .find(|c| c.column_name == "full_name")
+        .unwrap();
     assert!(name_col.nullable);
 }
 
 #[tokio::test]
 async fn sqlite_column_to_field() {
     let introspector = setup_introspector().await;
-    let columns = introspector.list_columns("users").await.expect("list columns");
+    let columns = introspector
+        .list_columns("users")
+        .await
+        .expect("list columns");
 
-    let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
+    let fields: Vec<_> = columns
+        .iter()
+        .map(|c| introspector.column_to_field(c))
+        .collect();
 
     let id = fields.iter().find(|f| f.name == "id").unwrap();
     assert_eq!(id.ty, neutrino_schema::types::DbType::Integer);
@@ -123,14 +138,20 @@ async fn sqlite_list_constraints() {
     let introspector = setup_introspector().await;
 
     // users: PK on id, UNIQUE on email
-    let user_constraints = introspector.list_constraints("users").await.expect("list constraints");
+    let user_constraints = introspector
+        .list_constraints("users")
+        .await
+        .expect("list constraints");
     assert!(user_constraints.iter().any(|c| matches!(&c.kind, neutrino_schema::ir::ConstraintKind::PrimaryKey { columns } if columns == &vec!["id".to_string()])),
         "expected PK on id");
     assert!(user_constraints.iter().any(|c| matches!(&c.kind, neutrino_schema::ir::ConstraintKind::Unique { columns } if columns == &vec!["email".to_string()])),
         "expected UNIQUE on email");
 
     // posts: PK on id, FK user_id → users(id)
-    let post_constraints = introspector.list_constraints("posts").await.expect("list constraints");
+    let post_constraints = introspector
+        .list_constraints("posts")
+        .await
+        .expect("list constraints");
     assert!(post_constraints.iter().any(|c| matches!(&c.kind, neutrino_schema::ir::ConstraintKind::PrimaryKey { columns } if columns == &vec!["id".to_string()])),
         "expected PK on id");
     assert!(post_constraints.iter().any(|c| matches!(&c.kind, neutrino_schema::ir::ConstraintKind::ForeignKey { columns, referenced_table, .. } if columns == &vec!["user_id".to_string()] && referenced_table == "users")),
@@ -140,13 +161,25 @@ async fn sqlite_list_constraints() {
 #[tokio::test]
 async fn sqlite_full_pipeline() {
     let introspector = setup_introspector().await;
-    let table_infos = introspector.list_tables_with_info().await.expect("list tables");
+    let table_infos = introspector
+        .list_tables_with_info()
+        .await
+        .expect("list tables");
 
     let mut tables = Vec::new();
     for info in &table_infos {
-        let columns = introspector.list_columns(&info.name).await.expect("list columns");
-        let fields: Vec<_> = columns.iter().map(|c| introspector.column_to_field(c)).collect();
-        let constraints = introspector.list_constraints(&info.name).await.expect("list constraints");
+        let columns = introspector
+            .list_columns(&info.name)
+            .await
+            .expect("list columns");
+        let fields: Vec<_> = columns
+            .iter()
+            .map(|c| introspector.column_to_field(c))
+            .collect();
+        let constraints = introspector
+            .list_constraints(&info.name)
+            .await
+            .expect("list constraints");
         tables.push(neutrino_schema::ir::TableIR {
             name: info.name.to_string(),
             fields,
@@ -159,7 +192,10 @@ async fn sqlite_full_pipeline() {
     let schema = SchemaIR::from_tables(tables, RelationStrategy::NamingHeuristic);
 
     // FK-derived relation: posts.user_id → users.id
-    let fk_rel = schema.relations.iter().find(|r| matches!(r.source, neutrino_schema::ir::RelationSource::ForeignKey(_)));
+    let fk_rel = schema
+        .relations
+        .iter()
+        .find(|r| matches!(r.source, neutrino_schema::ir::RelationSource::ForeignKey(_)));
     assert!(fk_rel.is_some(), "FK-derived relation should exist");
     if let Some(r) = fk_rel {
         assert_eq!(r.from_field, "user_id");
@@ -169,14 +205,25 @@ async fn sqlite_full_pipeline() {
 
     // Heuristic relation for the same FK pair should be suppressed
     // (FK metadata is authoritative; naming heuristic only fills gaps).
-    let heuristic_rel = schema.relations.iter().find(|r| matches!(r.source, neutrino_schema::ir::RelationSource::NamingHeuristic));
-    assert!(heuristic_rel.is_none(), "heuristic relation should NOT exist when FK already covers posts.user_id → users.id");
+    let heuristic_rel = schema.relations.iter().find(|r| {
+        matches!(
+            r.source,
+            neutrino_schema::ir::RelationSource::NamingHeuristic
+        )
+    });
+    assert!(
+        heuristic_rel.is_none(),
+        "heuristic relation should NOT exist when FK already covers posts.user_id → users.id"
+    );
 
     // Generated struct looks correct
     let users_table = schema.tables.iter().find(|t| t.name == "users").unwrap();
     let output = neutrino_schema::generate_struct(users_table, neutrino_schema::RenderMode::Clean);
     assert!(output.contains("pub struct Users"));
-    assert!(output.contains("pub email: String,"), "email should be non-null String");
+    assert!(
+        output.contains("pub email: String,"),
+        "email should be non-null String"
+    );
     assert!(output.contains("pub full_name: Option<String>,"));
     assert!(output.contains("pub salary: Option<f64>,"));
     assert!(output.contains("pub avatar: Option<Vec<u8>>,"));

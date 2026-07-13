@@ -3,9 +3,9 @@ use std::path::PathBuf;
 
 use clap::Args;
 
+use crate::cli::url_to_introspector;
 use crate::codegen::RenderMode;
 use crate::config::{DatabaseConfig, GeneratorConfig, ProjectConfig};
-use crate::cli::url_to_introspector;
 
 /// Generate Rust model files from a database schema.
 ///
@@ -86,7 +86,10 @@ impl GenerateCommand {
             }
             names
                 .into_iter()
-                .map(|name| crate::introspect::TableInfo { name, comment: None })
+                .map(|name| crate::introspect::TableInfo {
+                    name,
+                    comment: None,
+                })
                 .collect::<Vec<_>>()
         };
 

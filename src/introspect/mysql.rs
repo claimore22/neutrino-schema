@@ -3,8 +3,10 @@ use std::collections::HashMap;
 use sqlx::{MySqlPool, Row};
 
 use crate::introspect::table::TableInfo;
-use crate::ir::{ConstraintIR, ConstraintKind, EnumIR, EnumVariantIR, FieldIR, IndexEntryIR, IndexIR, IndexKind};
-use crate::introspect::{parse_mysql_enum, parse_referential_action, Column, DatabaseIntrospector};
+use crate::introspect::{Column, DatabaseIntrospector, parse_mysql_enum, parse_referential_action};
+use crate::ir::{
+    ConstraintIR, ConstraintKind, EnumIR, EnumVariantIR, FieldIR, IndexEntryIR, IndexIR, IndexKind,
+};
 use crate::types::{self, MysqlType};
 use crate::util::naming::{enum_variant_name, to_struct_name};
 
@@ -52,7 +54,6 @@ impl DatabaseIntrospector for MysqlIntrospector {
         .fetch_all(&self.pool)
         .await?;
 
-
         let rows: Vec<TableInfo> = rows
             .into_iter()
             .map(|r| TableInfo {
@@ -60,7 +61,6 @@ impl DatabaseIntrospector for MysqlIntrospector {
                 comment: r.get("table_comment"),
             })
             .collect();
-    
 
         Ok(rows)
     }
@@ -254,7 +254,10 @@ impl DatabaseIntrospector for MysqlIntrospector {
         let mut uq_groups: HashMap<String, Vec<String>> = HashMap::new();
         for r in uq_rows {
             let name: String = r.get("INDEX_NAME");
-            uq_groups.entry(name).or_default().push(r.get("COLUMN_NAME"));
+            uq_groups
+                .entry(name)
+                .or_default()
+                .push(r.get("COLUMN_NAME"));
         }
         for (name, columns) in uq_groups {
             constraints.push(ConstraintIR {
@@ -325,9 +328,8 @@ impl DatabaseIntrospector for MysqlIntrospector {
         .await
         {
             Ok(rows) => (rows, true),
-            Err(e) if is_expression_column_missing(&e) => {
-                sqlx::query(
-                    r#"
+            Err(e) if is_expression_column_missing(&e) => sqlx::query(
+                r#"
                     SELECT
                         INDEX_NAME,
                         COLUMN_NAME,
@@ -340,12 +342,11 @@ impl DatabaseIntrospector for MysqlIntrospector {
                       AND TABLE_NAME = ?
                     ORDER BY INDEX_NAME, SEQ_IN_INDEX
                     "#,
-                )
-                .bind(table)
-                .fetch_all(&self.pool)
-                .await
-                .map(|r| (r, false))?
-            }
+            )
+            .bind(table)
+            .fetch_all(&self.pool)
+            .await
+            .map(|r| (r, false))?,
             Err(e) => return Err(e.into()),
         };
 
@@ -355,22 +356,27 @@ impl DatabaseIntrospector for MysqlIntrospector {
         let mut index_map: std::collections::HashMap<String, MysqlIndexBuilder> = HashMap::new();
         for r in rows {
             let idx_name: String = r.get("INDEX_NAME");
-            let entry = index_map.entry(idx_name.clone()).or_insert_with(|| {
-                MysqlIndexBuilder {
+            let entry = index_map
+                .entry(idx_name.clone())
+                .or_insert_with(|| MysqlIndexBuilder {
                     name: idx_name,
                     unique: r.get::<i32, _>("NON_UNIQUE") == 0,
                     index_type: r.get("INDEX_TYPE"),
                     entries: Vec::new(),
-                }
-            });
+                });
             // Only update unique/index_type from first row; subsequent rows are
             // additional columns of the same index.
             // COLUMN_NAME can be NULL for functional indexes (e.g., LOWER(col))
-            let col_name: Option<String> = r.try_get("COLUMN_NAME").ok().and_then(|v: String| if v.is_empty() { None } else { Some(v) });
+            let col_name: Option<String> = r
+                .try_get("COLUMN_NAME")
+                .ok()
+                .and_then(|v: String| if v.is_empty() { None } else { Some(v) });
             let collation: Option<String> = r.get("COLLATION");
             let descending = collation.as_deref() == Some("D");
             if let Some(name) = col_name {
-                entry.entries.push(IndexEntryIR::Column { name, descending });
+                entry
+                    .entries
+                    .push(IndexEntryIR::Column { name, descending });
             } else if has_expression {
                 // EXPRESSION column is available (MySQL 8.0.13+)
                 let expr: Option<String> = r.try_get("EXPRESSION").ok().flatten();

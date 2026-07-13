@@ -23,14 +23,9 @@ pub struct IndexIR {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IndexEntryIR {
     /// A simple column reference (optionally descending).
-    Column {
-        name: String,
-        descending: bool,
-    },
+    Column { name: String, descending: bool },
     /// A scalar expression (e.g. `lower(email)`, `(metadata jsonb_path_ops)`).
-    Expression {
-        expression: String,
-    },
+    Expression { expression: String },
 }
 
 /// The access method / index structure type.

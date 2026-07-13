@@ -125,6 +125,9 @@ mod tests {
     #[test]
     fn handles_hyphenated_values() {
         let result = parse_mysql_enum("enum('needs-review','in-progress')");
-        assert_eq!(result, Some(vec!["needs-review".into(), "in-progress".into()]));
+        assert_eq!(
+            result,
+            Some(vec!["needs-review".into(), "in-progress".into()])
+        );
     }
 }

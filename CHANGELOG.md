@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented here.
 
+## [0.5.3] - 2026-07-13
+
+### Added
+- **Column default values** — `default_value: Option<String>` on `Column` and
+  `FieldIR` preserving raw SQL default expressions from all backends (PostgreSQL
+  `column_default`, MySQL `COLUMN_DEFAULT`, SQLite `dflt_value`).
+- **Generated column detection** — `generated: bool` on `Column` and `FieldIR`
+  for identity columns: PostgreSQL (`is_identity` / `nextval(`), MySQL
+  (`auto_increment`), SQLite (`INTEGER PRIMARY KEY`).
+
 ## [0.5.0] - 2026-07-13
 
 ### Added

@@ -11,6 +11,11 @@ pub struct FieldIR {
     pub nullable: bool,
     /// Raw SQL type name, only used for debug/CLI display. Never consulted by type pipeline.
     pub raw_type: String,
+    /// Raw SQL default expression, `None` means no default was defined.
+    pub default_value: Option<String>,
+    /// Whether the database generates this column's value (auto-increment,
+    /// identity, etc.).
+    pub generated: bool,
     /// Column comment, if any.
     pub comment: Option<String>,
 }

@@ -132,6 +132,8 @@ fn render_primary_key_metadata(table: &TableIR) -> String {
 ///         ty: DbType::String,
 ///         nullable: false,
 ///         raw_type: "Varchar".into(),
+///         default_value: None,
+///         generated: false,
 ///         comment: None,
 ///     }],
 ///     constraints: vec![],
@@ -376,6 +378,8 @@ mod tests {
                 ty: DbType::Integer,
                 nullable: false,
                 raw_type: "INTEGER".into(),
+                default_value: None,
+                generated: false,
                 comment: None,
             }],
             constraints: vec![ConstraintIR {
@@ -401,6 +405,8 @@ mod tests {
                     ty: DbType::Integer,
                     nullable: false,
                     raw_type: "INTEGER".into(),
+                    default_value: None,
+                    generated: false,
                     comment: None,
                 },
                 FieldIR {
@@ -408,6 +414,8 @@ mod tests {
                     ty: DbType::Integer,
                     nullable: false,
                     raw_type: "INTEGER".into(),
+                    default_value: None,
+                    generated: false,
                     comment: None,
                 },
             ],
@@ -449,6 +457,8 @@ mod tests {
             }),
             nullable: false,
             raw_type: "mood".into(),
+            default_value: None,
+            generated: false,
             comment: None,
         };
         let table = TableIR {
@@ -473,6 +483,8 @@ mod tests {
             }),
             nullable: true,
             raw_type: "mood".into(),
+            default_value: None,
+            generated: false,
             comment: None,
         };
         let table = TableIR {
@@ -496,6 +508,8 @@ mod tests {
             }),
             nullable: false,
             raw_type: "mood".into(),
+            default_value: None,
+            generated: false,
             comment: None,
         };
         let table = TableIR {

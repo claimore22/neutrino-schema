@@ -36,6 +36,8 @@ impl DatabaseIntrospector for MysqlIntrospector {
             ty: db_ty,
             nullable: col.nullable,
             raw_type: col.data_type.clone(),
+            default_value: col.default_value.clone(),
+            generated: col.generated,
             comment: col.comment.clone(),
         }
     }
@@ -71,6 +73,8 @@ impl DatabaseIntrospector for MysqlIntrospector {
             SELECT COLUMN_NAME  AS `column_name`,
                    DATA_TYPE    AS `data_type`,
                    IS_NULLABLE  AS `is_nullable`,
+                   COLUMN_DEFAULT AS `column_default`,
+                   EXTRA        AS `extra`,
                    COLUMN_COMMENT AS `column_comment`
             FROM information_schema.columns
             WHERE TABLE_SCHEMA = DATABASE()
@@ -86,11 +90,16 @@ impl DatabaseIntrospector for MysqlIntrospector {
             .into_iter()
             .map(|r| {
                 let raw: String = r.get("data_type");
+                let extra: Option<String> = r.try_get("extra").ok().flatten();
                 Column {
                     table_name: table.to_string(),
                     column_name: r.get("column_name"),
                     data_type: raw,
                     nullable: r.get::<String, _>("is_nullable") == "YES",
+                    default_value: r.try_get("column_default").ok().flatten(),
+                    generated: extra
+                        .as_deref()
+                        .is_some_and(|e| e.to_ascii_lowercase().contains("auto_increment")),
                     comment: r.get("column_comment"),
                 }
             })

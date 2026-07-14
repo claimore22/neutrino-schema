@@ -37,6 +37,8 @@ impl DatabaseIntrospector for PostgresIntrospector {
             ty: db_ty,
             nullable: col.nullable,
             raw_type: col.data_type.clone(),
+            default_value: col.default_value.clone(),
+            generated: col.generated,
             comment: col.comment.clone(),
         }
     }
@@ -73,6 +75,7 @@ impl DatabaseIntrospector for PostgresIntrospector {
         let rows = sqlx::query(
             r#"
             SELECT column_name, data_type, udt_name, is_nullable,
+                column_default, is_identity,
             pg_catalog.col_description(
                 (
                     SELECT c.oid
@@ -103,11 +106,19 @@ impl DatabaseIntrospector for PostgresIntrospector {
                 } else {
                     raw_data_type
                 };
+                let column_default: Option<String> = r.try_get("column_default").ok().flatten();
+                let is_identity: String = r.try_get("is_identity").unwrap_or_default();
+                let generated = is_identity == "YES"
+                    || column_default
+                        .as_deref()
+                        .is_some_and(|d| d.starts_with("nextval("));
                 Column {
                     table_name: table.to_string(),
                     column_name: r.get("column_name"),
                     data_type,
                     nullable: r.get::<String, _>("is_nullable") == "YES",
+                    default_value: column_default,
+                    generated,
                     comment: r.get("column_comment"),
                 }
             })

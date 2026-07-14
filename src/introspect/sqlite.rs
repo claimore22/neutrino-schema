@@ -32,6 +32,8 @@ impl super::DatabaseIntrospector for SqliteIntrospector {
             ty: db_ty,
             nullable: col.nullable,
             raw_type: col.data_type.clone(),
+            default_value: col.default_value.clone(),
+            generated: col.generated,
             comment: col.comment.clone(),
         }
     }
@@ -69,12 +71,17 @@ impl super::DatabaseIntrospector for SqliteIntrospector {
             .into_iter()
             .map(|r| {
                 let raw: Option<String> = r.get("type");
+                let data_type = raw.unwrap_or_else(|| "TEXT".to_string());
+                let notnull: i32 = r.get("notnull");
+                let pk: i32 = r.get("pk");
                 Column {
                     table_name: table.to_string(),
                     column_name: r.get("name"),
-                    data_type: raw.unwrap_or_else(|| "TEXT".to_string()),
-                    nullable: r.get::<i32, _>("notnull") == 0 && r.get::<i32, _>("pk") == 0,
-                    comment: None, // SQLite does not have a standard way to store column comments
+                    data_type: data_type.clone(),
+                    nullable: notnull == 0 && pk == 0,
+                    default_value: r.get("dflt_value"),
+                    generated: pk > 0 && data_type.trim().eq_ignore_ascii_case("INTEGER"),
+                    comment: None,
                 }
             })
             .collect())

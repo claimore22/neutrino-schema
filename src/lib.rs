@@ -29,6 +29,8 @@
 //!             ty: DbType::String,
 //!             nullable: false,
 //!             raw_type: "Varchar".into(),
+//!             default_value: None,
+//!             generated: false,
 //!             comment: None,
 //!         }],
 //!         constraints: vec![],

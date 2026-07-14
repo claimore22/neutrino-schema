@@ -10,6 +10,8 @@ fn generates_user_struct() {
             ty: DbType::Integer,
             nullable: false,
             raw_type: "integer".to_string(),
+            default_value: None,
+            generated: false,
             comment: None,
         },
         FieldIR {
@@ -17,6 +19,8 @@ fn generates_user_struct() {
             ty: DbType::String,
             nullable: false,
             raw_type: "character varying".to_string(),
+            default_value: None,
+            generated: false,
             comment: None,
         },
         FieldIR {
@@ -24,6 +28,8 @@ fn generates_user_struct() {
             ty: DbType::String,
             nullable: true,
             raw_type: "text".to_string(),
+            default_value: None,
+            generated: false,
             comment: None,
         },
     ];
@@ -55,6 +61,8 @@ fn generates_debug_comments() {
                 ty: DbType::Integer,
                 nullable: false,
                 raw_type: "integer".to_string(),
+                default_value: None,
+                generated: false,
                 comment: Some("Primary key".into()),
             },
             FieldIR {
@@ -62,6 +70,8 @@ fn generates_debug_comments() {
                 ty: DbType::String,
                 nullable: true,
                 raw_type: "text".to_string(),
+                default_value: None,
+                generated: false,
                 comment: None,
             },
         ],

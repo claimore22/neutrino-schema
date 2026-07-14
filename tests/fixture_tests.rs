@@ -351,7 +351,27 @@ mod sqlite {
             "user_id"
         );
 
-        assert!(schema.table("users").is_some());
+        let users = schema.table("users").expect("users table");
+        let id = users
+            .fields
+            .iter()
+            .find(|f| f.name == "id")
+            .expect("users.id");
+        assert!(
+            id.generated,
+            "users.id should be generated (INTEGER PRIMARY KEY)"
+        );
+        let age = users
+            .fields
+            .iter()
+            .find(|f| f.name == "age")
+            .expect("users.age");
+        assert_eq!(
+            age.default_value.as_deref(),
+            Some("0"),
+            "users.age default should be 0"
+        );
+
         assert!(schema.table("nonexistent").is_none());
     }
 

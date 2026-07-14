@@ -6,6 +6,8 @@
 [![License](https://img.shields.io/crates/l/neutrino-schema.svg?refresh=1)](https://github.com/claimore22/neutrino-schema)
 [![sqlx](https://img.shields.io/badge/sqlx-0.9-blue)](https://crates.io/crates/sqlx)
 
+> **Note:** This project is under active development. The SchemaIR is stabilizing but may still see breaking changes in minor releases. Pin your version and check the [CHANGELOG](CHANGELOG.md) before upgrading.
+
 Compile relational database schemas into strongly typed Rust types.
 
 ```sql

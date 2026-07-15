@@ -119,6 +119,24 @@ impl SchemaIR {
         self.tables.iter_mut().find(|t| t.name == name)
     }
 
+    /// Build a [`SchemaIR`] by introspecting a live database.
+    ///
+    /// Convenience wrapper around [`introspect_schema`](crate::introspect::introspect_schema)
+    /// that also populates [`Metadata::provider`] and [`Metadata::database_name`].
+    #[cfg(any(feature = "postgres", feature = "sqlite", feature = "mysql"))]
+    pub async fn from_database(
+        introspector: &dyn crate::introspect::DatabaseIntrospector,
+        table_infos: &[crate::introspect::TableInfo],
+        strategy: RelationStrategy,
+        provider: Option<crate::config::DatabaseProvider>,
+        database_name: Option<String>,
+    ) -> anyhow::Result<Self> {
+        let mut schema = crate::introspect::introspect_schema(introspector, table_infos, strategy).await?;
+        schema.metadata.provider = provider;
+        schema.metadata.database_name = database_name;
+        Ok(schema)
+    }
+
     // ------------------------------------------------------------------
     // JSON serialization
     // ------------------------------------------------------------------
@@ -273,3 +291,60 @@ impl std::fmt::Display for SchemaError {
 }
 
 impl std::error::Error for SchemaError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ir::{FieldIR, TableIR};
+
+    #[test]
+    fn json_roundtrip() {
+        let table = TableIR {
+            name: "users".into(),
+            fields: vec![FieldIR {
+                name: "id".into(),
+                ty: DbType::Integer,
+                nullable: false,
+                raw_type: "INTEGER".into(),
+                default_value: None,
+                generated: true,
+                comment: None,
+            }],
+            constraints: vec![],
+            comment: None,
+            indexes: vec![],
+        };
+        let schema = SchemaIR::from_tables(vec![table], RelationStrategy::Disabled);
+
+        let json = schema.to_json_pretty().expect("serialize");
+        println!("\n=== JSON output ===\n{json}\n====================");
+
+        let schema2 = SchemaIR::from_json_str(&json).expect("deserialize");
+        assert_eq!(schema, schema2);
+    }
+
+    #[test]
+    fn json_compact() {
+        let table = TableIR {
+            name: "t".into(),
+            fields: vec![FieldIR {
+                name: "id".into(),
+                ty: DbType::BigInt,
+                nullable: true,
+                raw_type: "BIGINT".into(),
+                default_value: None,
+                generated: false,
+                comment: None,
+            }],
+            constraints: vec![],
+            comment: None,
+            indexes: vec![],
+        };
+        let schema = SchemaIR::from_tables(vec![table], RelationStrategy::Disabled);
+
+        let json = schema.to_json().expect("compact");
+        assert!(!json.contains('\n'), "compact JSON should be single-line");
+        let deser = SchemaIR::from_json_str(&json).expect("deserialize compact");
+        assert_eq!(schema, deser);
+    }
+}

@@ -2,7 +2,8 @@ use crate::ir::{ConstraintIR, ConstraintKind, FieldIR, IndexIR};
 
 /// A database table with its columns represented as [`FieldIR`] entries
 /// and constraints as [`ConstraintIR`] entries.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TableIR {
     /// Table name (e.g. `"users"`, `"blog_posts"`).
     pub name: String,

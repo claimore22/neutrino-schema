@@ -1,12 +1,14 @@
 use crate::ir::RelationOrigin;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ConstraintIR {
     pub name: String,
     pub kind: ConstraintKind,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type")]
 pub enum ConstraintKind {
     PrimaryKey {
         columns: Vec<String>,
@@ -27,7 +29,8 @@ pub enum ConstraintKind {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
 pub enum ReferentialAction {
     NoAction,
     Restrict,
@@ -36,7 +39,8 @@ pub enum ReferentialAction {
     SetDefault,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum MatchType {
     Full,
     Partial,

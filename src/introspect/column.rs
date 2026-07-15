@@ -5,7 +5,7 @@
 /// `data_type` is the raw type name string from the database —
 /// use [`PgType::map_pg_type`](crate::PgType) or
 /// [`SqliteType::map_sqlite_type`](crate::SqliteType) to parse it.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Column {
     /// Parent table name.
     pub table_name: String,

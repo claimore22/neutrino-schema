@@ -68,6 +68,7 @@ pub mod config;
 pub mod ir;
 pub mod types;
 pub mod util;
+pub mod validator;
 
 #[cfg(any(feature = "postgres", feature = "sqlite", feature = "mysql"))]
 pub mod introspect;
@@ -81,9 +82,9 @@ pub use codegen::{
 };
 pub use ir::{
     ConstraintIR, ConstraintKind, EnumIR, EnumVariantIR, FieldIR, IndexEntryIR, IndexIR, IndexKind,
-    MatchType, ReferentialAction, RelationIR, RelationOrigin, RelationStrategy, SchemaError,
-    SchemaIR, TableIR,
+    MatchType, ReferentialAction, RelationIR, RelationOrigin, RelationStrategy, SchemaIR, TableIR,
 };
+pub use validator::{validate, ValidationEntry, ValidationLevel, ValidationReport};
 pub use types::{
     DbType, EnumRef, MysqlType, PgType, RustType, SqliteType, TypeRegistry, dbtype_to_rust,
     mysql_to_db_type, sqlite_declared_to_db_type, sqlite_to_db_type, to_db_type,

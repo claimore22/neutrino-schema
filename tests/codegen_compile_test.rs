@@ -56,7 +56,8 @@ async fn codegen_compile_sqlite_fixtures() {
     }
 
     let schema = SchemaIR::from_tables(tables, RelationStrategy::NamingHeuristic);
-    schema.validate().expect("schema validation should pass");
+    let report = neutrino_schema::validate(&schema);
+    assert!(!report.has_errors(), "schema validation should pass");
 
     // ── 3. Generate code ───────────────────────────────────────────────
     let tmp = std::env::temp_dir().join("ns_codegen_compile_test");

@@ -1,7 +1,6 @@
-use std::collections::HashSet;
-
 use crate::ir::{EnumIR, Metadata, RelationIR, RelationOrigin, RelationStrategy, TableIR};
-use crate::types::{DbType, EnumRef};
+#[cfg(test)]
+use crate::types::DbType;
 
 /// Full database schema — the top-level IR object consumed by code generation.
 ///
@@ -80,33 +79,6 @@ impl SchemaIR {
             relations,
             enums,
         }
-    }
-
-    /// Validate that all [`EnumRef`] references in table fields resolve to
-    /// defined enums, and that no two enums share the same Rust name.
-    ///
-    /// Call before code generation to catch configuration errors early.
-    pub fn validate(&self) -> Result<(), SchemaError> {
-        let mut seen = HashSet::new();
-        for enm in &self.enums {
-            if !seen.insert(enm.rust_name.as_str()) {
-                return Err(SchemaError::DuplicateEnum(enm.rust_name.clone()));
-            }
-        }
-
-        let enum_names: HashSet<&str> = self.enums.iter().map(|e| e.rust_name.as_str()).collect();
-
-        for table in &self.tables {
-            for field in &table.fields {
-                if let DbType::Enum(EnumRef { rust_name }) = &field.ty {
-                    if !enum_names.contains(rust_name.as_str()) {
-                        return Err(SchemaError::MissingEnum(rust_name.clone()));
-                    }
-                }
-            }
-        }
-
-        Ok(())
     }
 
     /// Look up a table by name.
@@ -261,36 +233,6 @@ impl SchemaIR {
         relations
     }
 }
-
-/// Errors detected during [`SchemaIR::validate`].
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum SchemaError {
-    /// A field references an enum that does not exist in [`SchemaIR::enums`].
-    MissingEnum(String),
-    /// Two or more enums share the same [`rust_name`](EnumIR::rust_name).
-    DuplicateEnum(String),
-}
-
-impl std::fmt::Display for SchemaError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SchemaError::MissingEnum(name) => {
-                write!(
-                    f,
-                    "Schema references enum \"{name}\" but no matching EnumIR was found"
-                )
-            }
-            SchemaError::DuplicateEnum(name) => {
-                write!(
-                    f,
-                    "Duplicate enum Rust name \"{name}\" — enums must have unique names"
-                )
-            }
-        }
-    }
-}
-
-impl std::error::Error for SchemaError {}
 
 #[cfg(test)]
 mod tests {

@@ -19,5 +19,6 @@ pub use field::*;
 pub use index::*;
 pub use metadata::*;
 pub use relation::*;
-pub use schema::*;
+pub use schema::SchemaIR;
+pub use schema::IR_VERSION;
 pub use table::*;

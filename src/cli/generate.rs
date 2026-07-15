@@ -93,7 +93,7 @@ impl GenerateCommand {
                 .collect::<Vec<_>>()
         };
 
-        let schema = crate::cli::introspect_schema(
+        let schema = crate::introspect::introspect_schema(
             introspector.as_ref(),
             &table_infos,
             RelationStrategy::NamingHeuristic,

@@ -1,7 +1,6 @@
-use std::collections::HashSet;
-
 use crate::ir::{EnumIR, Metadata, RelationIR, RelationOrigin, RelationStrategy, TableIR};
-use crate::types::{DbType, EnumRef};
+#[cfg(test)]
+use crate::types::DbType;
 
 /// Full database schema — the top-level IR object consumed by code generation.
 ///
@@ -82,33 +81,6 @@ impl SchemaIR {
         }
     }
 
-    /// Validate that all [`EnumRef`] references in table fields resolve to
-    /// defined enums, and that no two enums share the same Rust name.
-    ///
-    /// Call before code generation to catch configuration errors early.
-    pub fn validate(&self) -> Result<(), SchemaError> {
-        let mut seen = HashSet::new();
-        for enm in &self.enums {
-            if !seen.insert(enm.rust_name.as_str()) {
-                return Err(SchemaError::DuplicateEnum(enm.rust_name.clone()));
-            }
-        }
-
-        let enum_names: HashSet<&str> = self.enums.iter().map(|e| e.rust_name.as_str()).collect();
-
-        for table in &self.tables {
-            for field in &table.fields {
-                if let DbType::Enum(EnumRef { rust_name }) = &field.ty {
-                    if !enum_names.contains(rust_name.as_str()) {
-                        return Err(SchemaError::MissingEnum(rust_name.clone()));
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
-
     /// Look up a table by name.
     pub fn table(&self, name: &str) -> Option<&TableIR> {
         self.tables.iter().find(|t| t.name == name)
@@ -117,6 +89,24 @@ impl SchemaIR {
     /// Mutable lookup of a table by name (for IR transforms).
     pub fn table_mut(&mut self, name: &str) -> Option<&mut TableIR> {
         self.tables.iter_mut().find(|t| t.name == name)
+    }
+
+    /// Build a [`SchemaIR`] by introspecting a live database.
+    ///
+    /// Convenience wrapper around [`introspect_schema`](crate::introspect::introspect_schema)
+    /// that also populates [`Metadata::provider`] and [`Metadata::database_name`].
+    #[cfg(any(feature = "postgres", feature = "sqlite", feature = "mysql"))]
+    pub async fn from_database(
+        introspector: &dyn crate::introspect::DatabaseIntrospector,
+        table_infos: &[crate::introspect::TableInfo],
+        strategy: RelationStrategy,
+        provider: Option<crate::config::DatabaseProvider>,
+        database_name: Option<String>,
+    ) -> anyhow::Result<Self> {
+        let mut schema = crate::introspect::introspect_schema(introspector, table_infos, strategy).await?;
+        schema.metadata.provider = provider;
+        schema.metadata.database_name = database_name;
+        Ok(schema)
     }
 
     // ------------------------------------------------------------------
@@ -244,32 +234,59 @@ impl SchemaIR {
     }
 }
 
-/// Errors detected during [`SchemaIR::validate`].
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum SchemaError {
-    /// A field references an enum that does not exist in [`SchemaIR::enums`].
-    MissingEnum(String),
-    /// Two or more enums share the same [`rust_name`](EnumIR::rust_name).
-    DuplicateEnum(String),
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ir::{FieldIR, TableIR};
 
-impl std::fmt::Display for SchemaError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SchemaError::MissingEnum(name) => {
-                write!(
-                    f,
-                    "Schema references enum \"{name}\" but no matching EnumIR was found"
-                )
-            }
-            SchemaError::DuplicateEnum(name) => {
-                write!(
-                    f,
-                    "Duplicate enum Rust name \"{name}\" — enums must have unique names"
-                )
-            }
-        }
+    #[test]
+    fn json_roundtrip() {
+        let table = TableIR {
+            name: "users".into(),
+            fields: vec![FieldIR {
+                name: "id".into(),
+                ty: DbType::Integer,
+                nullable: false,
+                raw_type: "INTEGER".into(),
+                default_value: None,
+                generated: true,
+                comment: None,
+            }],
+            constraints: vec![],
+            comment: None,
+            indexes: vec![],
+        };
+        let schema = SchemaIR::from_tables(vec![table], RelationStrategy::Disabled);
+
+        let json = schema.to_json_pretty().expect("serialize");
+        println!("\n=== JSON output ===\n{json}\n====================");
+
+        let schema2 = SchemaIR::from_json_str(&json).expect("deserialize");
+        assert_eq!(schema, schema2);
+    }
+
+    #[test]
+    fn json_compact() {
+        let table = TableIR {
+            name: "t".into(),
+            fields: vec![FieldIR {
+                name: "id".into(),
+                ty: DbType::BigInt,
+                nullable: true,
+                raw_type: "BIGINT".into(),
+                default_value: None,
+                generated: false,
+                comment: None,
+            }],
+            constraints: vec![],
+            comment: None,
+            indexes: vec![],
+        };
+        let schema = SchemaIR::from_tables(vec![table], RelationStrategy::Disabled);
+
+        let json = schema.to_json().expect("compact");
+        assert!(!json.contains('\n'), "compact JSON should be single-line");
+        let deser = SchemaIR::from_json_str(&json).expect("deserialize compact");
+        assert_eq!(schema, deser);
     }
 }
-
-impl std::error::Error for SchemaError {}

@@ -46,7 +46,7 @@ impl InspectCommand {
 
         if self.all {
             let table_infos: Vec<TableInfo> = introspector.list_tables_with_info().await?;
-            let schema: SchemaIR = crate::cli::introspect_schema(
+            let schema: SchemaIR = crate::introspect::introspect_schema(
                 introspector.as_ref(),
                 &table_infos,
                 RelationStrategy::NamingHeuristic,

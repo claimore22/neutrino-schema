@@ -7,16 +7,23 @@ use crate::cli::url_to_introspector;
 use crate::codegen::RenderMode;
 use crate::config::{DatabaseConfig, GeneratorConfig, ProjectConfig};
 
-/// Generate Rust model files from a database schema.
+/// Generate Rust model files from a database schema or SchemaIR JSON.
 ///
-/// Connects to the database, introspects the public schema, and writes
-/// one `.rs` file per table (plus a `mod.rs`) to the output directory.
+/// Connects to a live database (default) or loads a previously exported
+/// SchemaIR JSON file via `--from-ir`.
 ///
 /// When run without arguments, `neutrino-schema generate` looks for a
 /// `neutrino-schema.toml` file in the current directory, or prompts
 /// interactively for a database URL.
 #[derive(Args)]
 pub struct GenerateCommand {
+    /// Path to a SchemaIR JSON file (exported via `neutrino-schema export`).
+    ///
+    /// When set, generation happens without a live database connection.
+    /// Mutually exclusive with --database-url.
+    #[arg(long, value_name = "FILE")]
+    pub from_ir: Option<PathBuf>,
+
     /// Database connection string (also read from `DATABASE_URL` env).
     #[arg(long)]
     pub database_url: Option<String>,
@@ -56,49 +63,15 @@ pub struct GenerateCommand {
 impl GenerateCommand {
     /// Execute the generate subcommand.
     pub async fn run(&self) -> anyhow::Result<()> {
-        use crate::ir::RelationStrategy;
-
         if self.all {
             anyhow::bail!("--all is not yet implemented");
         }
 
-        let url = self.resolve_database_url()?;
-        let introspector = url_to_introspector(&url).await?;
-
-        let provider = crate::config::detect_provider(&url)
-            .map(|p| p.display_name().to_string())
-            .unwrap_or_else(|| "Database".into());
-
-        eprintln!("Using database \"{}\"", self.database);
-        eprintln!("Inspecting {provider}...");
-
-        let table_infos = if self.table.is_empty() {
-            introspector.list_tables_with_info().await?
+        let schema = if let Some(path) = &self.from_ir {
+            self.run_from_ir(path)?
         } else {
-            let all_tables = introspector.list_tables_with_info().await?;
-            let existing: std::collections::HashSet<&str> =
-                all_tables.iter().map(|t| t.name.as_str()).collect();
-            let names = normalize_table_names(&self.table);
-            for name in &names {
-                if !existing.contains(name.as_str()) {
-                    anyhow::bail!("Table \"{name}\" not found in database");
-                }
-            }
-            names
-                .into_iter()
-                .map(|name| crate::introspect::TableInfo {
-                    name,
-                    comment: None,
-                })
-                .collect::<Vec<_>>()
+            self.run_from_database().await?
         };
-
-        let schema = crate::introspect::introspect_schema(
-            introspector.as_ref(),
-            &table_infos,
-            RelationStrategy::NamingHeuristic,
-        )
-        .await?;
 
         // Build type registry and generator config from config file,
         // then apply CLI overrides (CLI > config > default).
@@ -141,6 +114,78 @@ impl GenerateCommand {
         }
 
         Ok(())
+    }
+
+    /// Load and validate a SchemaIR from a JSON file.
+    fn run_from_ir(&self, path: &PathBuf) -> anyhow::Result<crate::ir::SchemaIR> {
+        let text = std::fs::read_to_string(path)?;
+        let schema = crate::ir::SchemaIR::from_json_str(&text)
+            .map_err(|e| anyhow::anyhow!("Failed to parse SchemaIR JSON: {e}"))?;
+
+        let report = crate::validator::validate(&schema);
+        if report.has_errors() {
+            eprintln!("Warning: loaded SchemaIR has validation errors:");
+            for entry in &report.entries {
+                let level = match entry.level {
+                    crate::validator::ValidationLevel::Error => "error",
+                    crate::validator::ValidationLevel::Warning => "warning",
+                };
+                let loc = entry.location.as_deref().unwrap_or("(global)");
+                eprintln!("  [{level}] {loc}: {}", entry.message);
+            }
+        }
+
+        eprintln!(
+            "Loaded IR: {} tables, {} relations, {} enums",
+            schema.tables.len(),
+            schema.relations.len(),
+            schema.enums.len(),
+        );
+
+        Ok(schema)
+    }
+
+    /// Introspect a live database and build a SchemaIR.
+    async fn run_from_database(&self) -> anyhow::Result<crate::ir::SchemaIR> {
+        use crate::ir::RelationStrategy;
+
+        let url = self.resolve_database_url()?;
+        let introspector = url_to_introspector(&url).await?;
+
+        let provider = crate::config::detect_provider(&url)
+            .map(|p| p.display_name().to_string())
+            .unwrap_or_else(|| "Database".into());
+
+        eprintln!("Using database \"{}\"", self.database);
+        eprintln!("Inspecting {provider}...");
+
+        let table_infos = if self.table.is_empty() {
+            introspector.list_tables_with_info().await?
+        } else {
+            let all_tables = introspector.list_tables_with_info().await?;
+            let existing: std::collections::HashSet<&str> =
+                all_tables.iter().map(|t| t.name.as_str()).collect();
+            let names = normalize_table_names(&self.table);
+            for name in &names {
+                if !existing.contains(name.as_str()) {
+                    anyhow::bail!("Table \"{name}\" not found in database");
+                }
+            }
+            names
+                .into_iter()
+                .map(|name| crate::introspect::TableInfo {
+                    name,
+                    comment: None,
+                })
+                .collect::<Vec<_>>()
+        };
+
+        crate::introspect::introspect_schema(
+            introspector.as_ref(),
+            &table_infos,
+            RelationStrategy::NamingHeuristic,
+        )
+        .await
     }
 
     /// Resolve the database URL from CLI flags, environment, config file,

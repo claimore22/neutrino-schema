@@ -70,9 +70,8 @@ impl Default for DatabaseConfig {
 }
 
 /// Supported database providers.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "cli", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "cli", serde(rename_all = "lowercase"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum DatabaseProvider {
     /// PostgreSQL
     Postgres,

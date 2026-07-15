@@ -6,7 +6,8 @@ use crate::types::{EnumRef, PgType, TypeRegistry};
 /// Raw database types (PostgreSQL, MySQL, SQLite) are normalised into this
 /// enum by [`to_db_type`], [`mysql_to_db_type`], or [`sqlite_to_db_type`].
 /// Nullability is NEVER encoded here — always `Option<T>` at codegen time.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type", content = "value")]
 pub enum DbType {
     // Numeric
     SmallInt,

@@ -3,7 +3,8 @@
 /// Describes the storage-level index structure. Logical constraints
 /// (PK, FK, UNIQUE, CHECK) are captured in [`ConstraintIR`] — an index
 /// may implement a constraint, but the index is not the constraint itself.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct IndexIR {
     /// Index name (e.g. `"users_email_idx"`, `"idx_lower_email"`).
     pub name: String,
@@ -20,7 +21,8 @@ pub struct IndexIR {
 }
 
 /// A single entry in an index definition.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type")]
 pub enum IndexEntryIR {
     /// A simple column reference (optionally descending).
     Column { name: String, descending: bool },
@@ -29,7 +31,8 @@ pub enum IndexEntryIR {
 }
 
 /// The access method / index structure type.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "type")]
 pub enum IndexKind {
     BTree,
     Hash,

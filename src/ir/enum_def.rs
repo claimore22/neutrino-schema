@@ -5,7 +5,8 @@ use crate::util::naming::{enum_variant_name, to_struct_name};
 /// Carries both the original database identity and the resolved Rust
 /// identifiers so that codegen has all information it needs without
 /// referencing the introspector or database again.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EnumIR {
     /// The original database enum name (e.g. `"status"`, `"mood"`).
     pub database_name: String,
@@ -19,7 +20,8 @@ pub struct EnumIR {
 }
 
 /// A single variant of a database enum.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EnumVariantIR {
     /// The original database value (e.g. `"needs_review"`, `"'it''s ok'"`).
     pub database_name: String,

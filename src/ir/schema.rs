@@ -7,7 +7,8 @@ use crate::types::{DbType, EnumRef};
 ///
 /// Construct via [`SchemaIR::from_tables`] (without enums) or
 /// [`SchemaIR::with_enums`] for the full schema including enum definitions.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SchemaIR {
     /// All tables discovered or provided.
     pub tables: Vec<TableIR>,
@@ -181,7 +182,7 @@ impl SchemaIR {
 }
 
 /// Errors detected during [`SchemaIR::validate`].
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum SchemaError {
     /// A field references an enum that does not exist in [`SchemaIR::enums`].
     MissingEnum(String),

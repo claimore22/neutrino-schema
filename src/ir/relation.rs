@@ -1,5 +1,6 @@
 /// Where a relation definition originated.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum RelationOrigin {
     /// Derived from a real foreign key constraint in the database.
     ForeignKey,
@@ -12,7 +13,8 @@ pub enum RelationOrigin {
 ///
 /// Relation inference is always best-effort and does **not** query database
 /// foreign key constraints.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum RelationStrategy {
     /// No relation inference — relations vec will be empty.
     Disabled,
@@ -29,7 +31,8 @@ pub enum RelationStrategy {
 /// One constraint = one [`RelationIR`]. Composite foreign keys appear as a
 /// single entry with multiple columns in [`from_columns`](RelationIR::from_columns)
 /// and [`to_columns`](RelationIR::to_columns).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RelationIR {
     /// Source table name.
     pub from_table: String,

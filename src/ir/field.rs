@@ -1,7 +1,8 @@
 use crate::types::DbType;
 
 /// A single column in a table, represented in the database-agnostic type system.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FieldIR {
     /// Column name (e.g. `"email"`, `"created_at"`).
     pub name: String,

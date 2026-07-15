@@ -6,6 +6,7 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
+        Command::Export(export) => export.run().await?,
         Command::Inspect(inspect) => inspect.run().await?,
         Command::Generate(generate) => generate.run().await?,
         Command::Init(init) => init.run()?,

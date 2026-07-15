@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented here.
 
+## [0.5.5] - 2026-07-14
+
+### Added
+- **`neutrino-schema generate --from-ir <FILE>`** — generate code from a
+  SchemaIR JSON file without a live database connection. Loads, validates,
+  then proceeds through the normal codegen pipeline. (`src/cli/generate.rs`)
+- **`neutrino-schema export`** — introspect a database and write a
+  versioned SchemaIR JSON file. Supports `--output`, `--pretty`.
+  URL resolution via CLI flag, `DATABASE_URL` env, config file, or
+  interactive prompt. (`src/cli/export.rs`)
+- **`SchemaIR::from_database()`** — convenience constructor that
+  introspects a live database and populates `Metadata.provider`.
+  (`src/ir/schema.rs`)
+- **Validator module** (`src/validator/`) — standalone semantic validation
+  returning a `ValidationReport` with `ValidationEntry` items.
+  - Empty/whitespace identifiers (table, field, enum names) → Error
+  - Duplicate table names → Error
+  - Duplicate enum `rust_name` → Error
+  - Unresolved `DbType::Enum` references → Error
+  - FK references to non-existent tables → Error
+  - Orphan enums (defined but never referenced) → Warning
+  - `ValidationReport` helpers: `has_errors()`, `errors()`, `has_warnings()`, `warnings()`
+- **Public introspection API** — `introspect_tables()` and
+  `introspect_schema()` moved from `cli/mod.rs` to `introspect/mod.rs`
+  as `pub` functions.
+
+### Changed
+- `SchemaIR::validate()` removed — validation is now a standalone
+  operation over the IR, not a method on `SchemaIR`.
+- `SchemaError` enum removed entirely (was only used by the old `validate()`).
+
+## [0.5.4] - 2026-07-14
+
+Same as 0.5.5 — superseded during development.
+
 ## [0.5.3] - 2026-07-13
 
 ### Added

@@ -1,15 +1,18 @@
 //! CLI entry points for the `neutrino-schema` binary.
 //!
-//! Three subcommands:
+//! Subcommands:
 //! - `inspect` — print generated structs to stdout or dump all tables.
 //! - `generate` — write `.rs` model files to a directory.
+//! - `export` — write SchemaIR JSON to a file.
 //! - `init` — create a `neutrino-schema.toml` config file.
 
+mod export;
 mod generate;
 mod init;
 mod inspect;
 
 use clap::{Parser, Subcommand};
+use export::ExportCommand;
 use generate::GenerateCommand;
 use init::InitCommand;
 use inspect::InspectCommand;
@@ -113,6 +116,8 @@ pub struct Cli {
 pub enum Command {
     /// Inspect a database and print structs to stdout
     Inspect(InspectCommand),
+    /// Export SchemaIR JSON to a file
+    Export(ExportCommand),
     /// Generate Rust model files from a database schema
     Generate(GenerateCommand),
     /// Create a neutrino-schema.toml configuration file

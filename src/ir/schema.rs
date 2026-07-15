@@ -1,21 +1,48 @@
 use std::collections::HashSet;
 
-use crate::ir::{EnumIR, RelationIR, RelationOrigin, RelationStrategy, TableIR};
+use crate::ir::{EnumIR, Metadata, RelationIR, RelationOrigin, RelationStrategy, TableIR};
 use crate::types::{DbType, EnumRef};
 
 /// Full database schema — the top-level IR object consumed by code generation.
+///
+/// `ir_version` tracks the JSON serialization format (not the crate version).
+/// `metadata` records the database provider and generation time.
 ///
 /// Construct via [`SchemaIR::from_tables`] (without enums) or
 /// [`SchemaIR::with_enums`] for the full schema including enum definitions.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SchemaIR {
+    /// SchemaIR JSON format version. Bumped only on breaking JSON structure
+    /// changes. Currently `1`.
+    pub ir_version: u16,
+    /// Provenance and generation metadata.
+    pub metadata: Metadata,
     /// All tables discovered or provided.
     pub tables: Vec<TableIR>,
     /// Inferred inter-table relationships (may be empty).
     pub relations: Vec<RelationIR>,
     /// Database enum types (e.g. PostgreSQL `CREATE TYPE`, MySQL `ENUM` columns).
     pub enums: Vec<EnumIR>,
+}
+
+/// Current SchemaIR JSON format version.
+///
+/// Incremented only on **breaking** changes to the JSON structure
+/// (field removals, renames, type changes). Additions of optional fields
+/// should NOT bump this version.
+pub const IR_VERSION: u16 = 1;
+
+impl Default for SchemaIR {
+    fn default() -> Self {
+        Self {
+            ir_version: IR_VERSION,
+            metadata: Metadata::default(),
+            tables: Vec::new(),
+            relations: Vec::new(),
+            enums: Vec::new(),
+        }
+    }
 }
 
 impl SchemaIR {
@@ -27,6 +54,8 @@ impl SchemaIR {
             relations.extend(Self::infer_relations_heuristic(&tables, &fk_relations));
         }
         SchemaIR {
+            ir_version: IR_VERSION,
+            metadata: Metadata::default(),
             tables,
             relations,
             enums: Vec::new(),
@@ -45,6 +74,8 @@ impl SchemaIR {
             relations.extend(Self::infer_relations_heuristic(&tables, &fk_relations));
         }
         SchemaIR {
+            ir_version: IR_VERSION,
+            metadata: Metadata::default(),
             tables,
             relations,
             enums,
@@ -86,6 +117,38 @@ impl SchemaIR {
     /// Mutable lookup of a table by name (for IR transforms).
     pub fn table_mut(&mut self, name: &str) -> Option<&mut TableIR> {
         self.tables.iter_mut().find(|t| t.name == name)
+    }
+
+    // ------------------------------------------------------------------
+    // JSON serialization
+    // ------------------------------------------------------------------
+
+    /// Serialize to compact (non-pretty) JSON.
+    pub fn to_json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(self)
+    }
+
+    /// Serialize to pretty-printed JSON.
+    pub fn to_json_pretty(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string_pretty(self)
+    }
+
+    /// Deserialize from a JSON string.
+    pub fn from_json_str(s: &str) -> Result<Self, serde_json::Error> {
+        serde_json::from_str(s)
+    }
+
+    /// Write JSON (pretty or compact) to any [`std::io::Write`] implementor.
+    pub fn write_json_to(
+        &self,
+        writer: impl std::io::Write,
+        pretty: bool,
+    ) -> Result<(), serde_json::Error> {
+        if pretty {
+            serde_json::to_writer_pretty(writer, self)
+        } else {
+            serde_json::to_writer(writer, self)
+        }
     }
 
     fn table_exists(tables: &[TableIR], name: &str) -> bool {

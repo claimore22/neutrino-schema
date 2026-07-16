@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented here.
 
+## [0.5.6] - 2026-07-15
+
+### Added
+- **Integration tests for JSON roundtrip** (`tests/json_roundtrip.rs`) —
+  6 tests covering compact, pretty, file I/O, validation, metadata
+  preservation, and special characters.
+- **Integration tests for validator roundtrip** (`tests/validator_roundtrip.rs`) —
+  7 tests covering valid schemas, FK references, orphan enums, duplicate
+  tables, empty names, and missing enum refs after JSON roundtrip.
+- **Validation documentation** in README with detection rules table.
+
+### Fixed
+- Clippy `unwrap_used` warnings in validator roundtrip tests.
+
 ## [0.5.5] - 2026-07-14
 
 ### Added

@@ -81,7 +81,10 @@ Raw database types are normalised into a database-agnostic `DbType` enum, then r
 - Configurable type resolution (`TypeRegistry`) with `[types]` overrides — e.g. `money = "rust_decimal::Decimal"`
 - Feature-gated Rust types: `uuid::Uuid`, `rust_decimal::Decimal`, `chrono::DateTime<Utc>`, etc.
 - Automatic Rust struct generation with `Option<T>` for nullable columns
-- CLI tooling: `init`, `inspect`, and `generate` commands
+- CLI tooling: `init`, `inspect`, `export`, and `generate` commands
+- **JSON export** — serialize a normalized SchemaIR to a versioned JSON file
+- **Offline code generation** — `generate --from-ir` works without a database connection
+- **Schema validation** — semantic checks for duplicate tables, missing references, orphan enums
 - Config file workflow (`neutrino-schema.toml` with `[databases.*]`, `[generator]`, `[types]` sections)
 - `--table` flag for selective generation
 - Relationship inference via naming heuristics
@@ -109,9 +112,38 @@ neutrino-schema generate
 # Inspect schema without generating code
 neutrino-schema inspect --database-url $DATABASE_URL
 
+# Export the schema to a versioned JSON file
+neutrino-schema export --database-url $DATABASE_URL --pretty -o my_schema.json
+
+# Generate code from the exported JSON (no database connection needed)
+neutrino-schema generate --from-ir my_schema.json --output src/entities
+
 # Generate only specific tables
 neutrino-schema generate --database-url $DATABASE_URL --table users,orders
 ```
+
+### Validation
+
+The `validate()` function checks a `SchemaIR` for consistency before code generation. It returns a `ValidationReport` with errors (blocking) and warnings (non-blocking):
+
+```rust
+use neutrino_schema::{validate, ValidationLevel};
+
+let report = validate(&schema);
+if report.has_errors() {
+    for entry in report.errors() {
+        eprintln!("[error] {}: {}", entry.location.as_deref().unwrap_or("(global)"), entry.message);
+    }
+}
+```
+
+Detection rules:
+- Empty or whitespace-only identifiers — Error
+- Duplicate table names — Error
+- Duplicate enum Rust names — Error
+- Unresolved `EnumRef` references — Error
+- Foreign key references to non-existent tables — Error
+- Orphan enums (defined but never referenced) — Warning
 
 ### Configuration
 

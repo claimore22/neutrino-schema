@@ -216,7 +216,7 @@ async fn sqlite_full_pipeline() {
 
     // Generated struct looks correct
     let users_table = schema.tables.iter().find(|t| t.name == "users").unwrap();
-    let output = neutrino_schema::generate_struct(users_table, neutrino_schema::RenderMode::Clean);
+    let output = neutrino_schema::generate_struct(users_table, &neutrino_schema::GenerateOptions::default());
     assert!(output.contains("pub struct Users"));
     assert!(
         output.contains("pub email: String,"),

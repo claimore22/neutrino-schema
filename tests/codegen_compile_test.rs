@@ -6,8 +6,7 @@ mod common;
 async fn codegen_compile_sqlite_fixtures() {
     use neutrino_schema::{
         RelationStrategy, SchemaIR,
-        codegen::{RenderMode, generate_files_with_registry},
-        config::GeneratorConfig,
+        codegen::{RenderMode, generate},
         introspect::DatabaseIntrospector,
         types::TypeRegistry,
     };
@@ -64,14 +63,16 @@ async fn codegen_compile_sqlite_fixtures() {
     let _ = std::fs::remove_dir_all(&tmp);
     let out_dir = tmp.join("src").join("entities");
 
-    let config = GeneratorConfig {
-        output_dir: out_dir.clone(),
-        module_name: "entities".into(),
+    let options = neutrino_schema::GenerateOptions {
         render_mode: RenderMode::Debug,
+        rust: neutrino_schema::RustGeneratorConfig {
+            module_name: "entities".into(),
+            derive_from_row: false,
+            type_registry: TypeRegistry::default(),
+        },
     };
-    let registry = TypeRegistry::default();
-
-    generate_files_with_registry(&schema, &config, &registry).expect("generate files");
+    let output = generate(&schema, &options);
+    neutrino_schema::OutputWriter::write(&output, &out_dir).expect("write files");
 
     // ── 4. Write Cargo.toml ────────────────────────────────────────────
     // SQLite fixture types all resolve to standard Rust types (i32, i64, f64, String, Vec<u8>),

@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use clap::Args;
 
 use crate::cli::url_to_introspector;
-use crate::codegen::RenderMode;
 use crate::config::{DatabaseConfig, GeneratorConfig, ProjectConfig};
+use crate::{GenerateOptions, OutputWriter, RenderMode, RustGeneratorConfig};
 
 /// Generate Rust model files from a database schema or SchemaIR JSON.
 ///
@@ -93,7 +93,16 @@ impl GenerateCommand {
             config.render_mode = RenderMode::Debug;
         }
 
-        crate::codegen::generate_files_with_registry(&schema, &config, &registry)?;
+        let options = GenerateOptions {
+            render_mode: config.render_mode,
+            rust: RustGeneratorConfig {
+                module_name: config.module_name.clone(),
+                derive_from_row: false,
+                type_registry: registry,
+            },
+        };
+        let output = crate::codegen::generate(&schema, &options);
+        OutputWriter::write(&output, &config.output_dir)?;
 
         eprintln!(
             "✓ Generated {} tables to {:?}",
@@ -122,13 +131,13 @@ impl GenerateCommand {
         let schema = crate::ir::SchemaIR::from_json_str(&text)
             .map_err(|e| anyhow::anyhow!("Failed to parse SchemaIR JSON: {e}"))?;
 
-        let report = crate::validator::validate(&schema);
+        let report = crate::validation::validate(&schema);
         if report.has_errors() {
             eprintln!("Warning: loaded SchemaIR has validation errors:");
             for entry in &report.entries {
                 let level = match entry.level {
-                    crate::validator::ValidationLevel::Error => "error",
-                    crate::validator::ValidationLevel::Warning => "warning",
+                    crate::validation::ValidationLevel::Error => "error",
+                    crate::validation::ValidationLevel::Warning => "warning",
                 };
                 let loc = entry.location.as_deref().unwrap_or("(global)");
                 eprintln!("  [{level}] {loc}: {}", entry.message);

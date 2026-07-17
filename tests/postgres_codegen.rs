@@ -1,5 +1,5 @@
 use neutrino_schema::{
-    FieldIR, RelationStrategy, RenderMode, SchemaIR, TableIR, generate_struct, types::DbType,
+    types::DbType, FieldIR, GenerateOptions, RelationStrategy, SchemaIR, TableIR, generate_struct,
 };
 
 #[test]
@@ -43,7 +43,7 @@ fn generates_user_struct() {
     }];
 
     let schema = SchemaIR::from_tables(tables, RelationStrategy::Disabled);
-    let output = generate_struct(&schema.tables[0], RenderMode::Clean);
+    let output = generate_struct(&schema.tables[0], &GenerateOptions::default());
 
     assert!(output.contains("pub struct Users"));
     assert!(output.contains("pub id: i32,"));
@@ -80,7 +80,11 @@ fn generates_debug_comments() {
         indexes: vec![],
     };
 
-    let output = generate_struct(&table, RenderMode::Debug);
+    let opts = GenerateOptions {
+        render_mode: neutrino_schema::RenderMode::Debug,
+        ..Default::default()
+    };
+    let output = generate_struct(&table, &opts);
 
     // Debug mode comment on id field
     assert!(output.contains("// integer, NOT NULL"));

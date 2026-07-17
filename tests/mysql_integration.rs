@@ -233,7 +233,7 @@ async fn mysql_full_pipeline() {
     assert!(schema.relations.iter().any(|r| r.from_table == "posts"));
     let output = neutrino_schema::generate_struct(
         schema.tables.iter().find(|t| t.name == "users").unwrap(),
-        neutrino_schema::RenderMode::Clean,
+        &neutrino_schema::GenerateOptions::default(),
     );
     assert!(output.contains("pub struct Users"));
     drop(introspector);

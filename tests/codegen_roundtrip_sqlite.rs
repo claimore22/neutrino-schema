@@ -15,7 +15,7 @@ mod common;
 #[tokio::test]
 async fn generated_models_roundtrip_sqlite() {
     use neutrino_schema::{
-        codegen::{RenderMode, generate_struct},
+        codegen::{generate_struct, RenderMode, RustGeneratorConfig},
         introspect::DatabaseIntrospector,
     };
     use sqlx::sqlite::SqlitePoolOptions;
@@ -68,13 +68,14 @@ async fn generated_models_roundtrip_sqlite() {
             comment: info.comment.clone(),
             indexes: vec![],
         };
-        let struct_src = generate_struct(&table, RenderMode::Debug);
-        // Post-process: add sqlx::FromRow to derives
-        let struct_src = struct_src.replace(
-            "#[derive(Debug, Clone)]",
-            "#[derive(Debug, Clone, sqlx::FromRow)]",
-        );
-        struct_strs.push(struct_src);
+        let opts = neutrino_schema::GenerateOptions {
+            render_mode: RenderMode::Debug,
+            rust: RustGeneratorConfig {
+                derive_from_row: true,
+                ..Default::default()
+            },
+        };
+        struct_strs.push(generate_struct(&table, &opts));
     }
 
     // ── Level 4A: Validate generated Rust parses with syn ──────────

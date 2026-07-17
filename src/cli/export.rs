@@ -52,13 +52,13 @@ impl ExportCommand {
         .await?;
 
         // Run validation — warn but don't block export
-        let report = crate::validator::validate(&schema);
+        let report = crate::validation::validate(&schema);
         if report.has_errors() {
             eprintln!("Warning: schema has validation errors:");
             for entry in &report.entries {
                 let level = match entry.level {
-                    crate::validator::ValidationLevel::Error => "error",
-                    crate::validator::ValidationLevel::Warning => "warning",
+                    crate::validation::ValidationLevel::Error => "error",
+                    crate::validation::ValidationLevel::Warning => "warning",
                 };
                 let loc = entry
                     .location

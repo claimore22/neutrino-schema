@@ -7,14 +7,11 @@
 //! # Pipeline
 //!
 //! 1. **Introspect** — reads schema metadata via [`DatabaseIntrospector`]
-//!    (querying `information_schema` for PostgreSQL/MySQL or `sqlite_master` /
-//!    `PRAGMA table_info` for SQLite).
-//! 2. **Normalise** — raw [`PgType`], [`MysqlType`], or [`SqliteType`] values
-//!    are mapped to [`DbType`] (database-agnostic).  Columns are collected into
-//!    [`FieldIR`] → [`TableIR`] → [`SchemaIR`].  Optional relation inference
-//!    uses naming heuristics (column ending in `_id`).
-//! 3. **Generate** — [`SchemaIR`] is rendered into `.rs` files via [`generate_files`]
-//!    or printed per-table with [`generate_struct`].
+//! 2. **Normalise** — raw column types map to [`DbType`]; fields, tables,
+//!    constraints, enums, and indexes collect into [`SchemaIR`]
+//! 3. **Generate** — [`SchemaIR`] is consumed by [`generate()`] which returns
+//!    a [`GeneratedOutput`] containing file contents; the CLI writes them via
+//!    [`OutputWriter`]
 //!
 //! # Quick start (programmatic)
 //!
@@ -41,7 +38,8 @@
 //!
 //! let schema = SchemaIR::from_tables(tables, RelationStrategy::NamingHeuristic);
 //!
-//! let generated = generate_struct(&schema.tables[0], RenderMode::Clean);
+//! let output = generate(&schema, &GenerateOptions::default());
+//! let generated = output.file("users.rs").map(|f| &f.content[..]).unwrap_or("");
 //! assert!(generated.contains("pub struct Users"));
 //! ```
 //!
@@ -68,7 +66,7 @@ pub mod config;
 pub mod ir;
 pub mod types;
 pub mod util;
-pub mod validator;
+pub mod validation;
 
 #[cfg(any(feature = "postgres", feature = "sqlite", feature = "mysql"))]
 pub mod introspect;
@@ -77,17 +75,18 @@ pub mod introspect;
 pub mod cli;
 
 pub use codegen::{
-    RenderMode, generate_enum_defs, generate_files, generate_files_with_registry, generate_imports,
-    generate_struct,
+    generate, generate_enum_defs, generate_files, generate_files_with_registry, generate_imports,
+    generate_struct, GenerateOptions, GeneratedFile, GeneratedOutput, OutputWriter, RenderMode,
+    RustGeneratorConfig,
 };
 pub use ir::{
     ConstraintIR, ConstraintKind, EnumIR, EnumVariantIR, FieldIR, IndexEntryIR, IndexIR, IndexKind,
     MatchType, ReferentialAction, RelationIR, RelationOrigin, RelationStrategy, SchemaIR, TableIR,
 };
-pub use validator::{validate, ValidationEntry, ValidationLevel, ValidationReport};
+pub use validation::{validate, ValidationEntry, ValidationLevel, ValidationReport};
 pub use types::{
-    DbType, EnumRef, MysqlType, PgType, RustType, SqliteType, TypeRegistry, dbtype_to_rust,
-    mysql_to_db_type, sqlite_declared_to_db_type, sqlite_to_db_type, to_db_type,
+    dbtype_to_rust, mysql_to_db_type, sqlite_declared_to_db_type, sqlite_to_db_type, to_db_type,
+    DbType, EnumRef, MysqlType, PgType, RustType, SqliteType, TypeRegistry,
 };
 pub use util::naming::{
     deduplicate_identifier, enum_variant_name, sanitize_identifier, to_struct_name,

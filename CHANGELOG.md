@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented here.
 
+## [0.6.0] - 2026-07-16
+
+### Changed
+- **BREAKING:** Renamed `validator` module to `validation` — update imports
+  from `neutrino_schema::validator` to `neutrino_schema::validation`.
+- **BREAKING:** Split `codegen::rust` module into `codegen::rust/` submodules
+  (`generator`, `render`, `resolver`, `enums`, `imports`) for better
+  maintainability.
+- Extracted validation tests into `validation/tests.rs`.
+
 ## [0.5.6] - 2026-07-15
 
 ### Added

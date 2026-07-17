@@ -1,11 +1,9 @@
 use clap::Args;
 
-use crate::SchemaIR;
 use crate::cli::url_to_introspector;
-use crate::codegen::{RenderMode, generate_struct};
-use crate::config::GeneratorConfig;
 use crate::introspect::TableInfo;
 use crate::ir::RelationStrategy;
+use crate::{GenerateOptions, OutputWriter, RenderMode, SchemaIR};
 
 /// Inspect a database and print generated structs.
 ///
@@ -52,17 +50,17 @@ impl InspectCommand {
                 RelationStrategy::NamingHeuristic,
             )
             .await?;
-            let cfg = GeneratorConfig {
-                output_dir: "generated".into(),
-                module_name: "types".into(),
+            let options = GenerateOptions {
                 render_mode: mode,
+                ..Default::default()
             };
-            crate::codegen::generate_files(&schema, &cfg)?;
+            let output = crate::codegen::generate(&schema, &options);
+            OutputWriter::write(&output, std::path::Path::new("generated"))?;
 
             eprintln!(
                 "Generated {} tables to {:?}",
                 schema.tables.len(),
-                cfg.output_dir
+                "generated",
             );
             eprintln!("Relations: {}", schema.relations.len());
             for r in &schema.relations {
@@ -100,7 +98,11 @@ impl InspectCommand {
                 comment,
                 indexes,
             };
-            print!("{}", generate_struct(&table_ir, mode));
+            let options = GenerateOptions {
+                render_mode: mode,
+                ..Default::default()
+            };
+            print!("{}", crate::codegen::generate_struct(&table_ir, &options));
         } else {
             let table_infos = introspector.list_tables_with_info().await?;
             println!("Tables:");

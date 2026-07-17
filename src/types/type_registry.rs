@@ -30,9 +30,24 @@ pub struct RustType {
 /// let rt = registry.resolve(&DbType::Decimal);
 /// assert_eq!(rt.name, "rust_decimal::Decimal");
 /// ```
+#[derive(Debug)]
 pub struct TypeRegistry {
     overrides: HashMap<String, RustType>,
     warned_unknown: Mutex<HashSet<String>>,
+}
+
+impl Clone for TypeRegistry {
+    fn clone(&self) -> Self {
+        Self {
+            overrides: self.overrides.clone(),
+            warned_unknown: Mutex::new(
+                self.warned_unknown
+                    .lock()
+                    .expect("poisoned lock")
+                    .clone(),
+            ),
+        }
+    }
 }
 
 impl TypeRegistry {

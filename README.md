@@ -7,6 +7,7 @@
 [![sqlx](https://img.shields.io/badge/sqlx-0.9-blue)](https://crates.io/crates/sqlx)
 
 > **Note:** This project is under active development. The SchemaIR is stabilizing but may still see breaking changes in minor releases. Pin your version and check the [CHANGELOG](CHANGELOG.md) before upgrading.
+
 SchemaIR is approaching stability. While the JSON format is versioned (ir_version), minor releases may still introduce breaking changes as the project evolves. Review the CHANGELOG before upgrading.
 Compile relational database schemas into strongly typed Rust types.
 

@@ -225,21 +225,25 @@ impl DatabaseIntrospector for PostgresIntrospector {
                 tc.constraint_type,
                 ccu.column_name,
                 ccu.ordinal_position,
-                ccu.table_schema      AS ref_table_schema,
-                ccu.table_name        AS ref_table_name,
-                ccu.column_name       AS ref_column_name,
+                ref_kcu.table_name        AS ref_table_name,
+                ref_kcu.column_name       AS ref_column_name,
                 rc.update_rule,
                 rc.delete_rule,
                 cc.check_clause
             FROM information_schema.table_constraints tc
-            LEFT JOIN information_schema.key_column_usage ccu
+            JOIN information_schema.key_column_usage ccu
                 ON tc.constraint_catalog = ccu.constraint_catalog
                 AND tc.constraint_schema = ccu.constraint_schema
                 AND tc.constraint_name = ccu.constraint_name
+                AND tc.table_name = ccu.table_name
             LEFT JOIN information_schema.referential_constraints rc
                 ON tc.constraint_catalog = rc.constraint_catalog
                 AND tc.constraint_schema = rc.constraint_schema
                 AND tc.constraint_name = rc.constraint_name
+            LEFT JOIN information_schema.key_column_usage ref_kcu
+                ON rc.unique_constraint_catalog = ref_kcu.constraint_catalog
+                AND rc.unique_constraint_schema = ref_kcu.constraint_schema
+                AND rc.unique_constraint_name = ref_kcu.constraint_name
             LEFT JOIN information_schema.check_constraints cc
                 ON tc.constraint_catalog = cc.constraint_catalog
                 AND tc.constraint_schema = cc.constraint_schema
@@ -302,6 +306,20 @@ impl DatabaseIntrospector for PostgresIntrospector {
             }
         }
 
+        // Fallback: for FK constraints where ref_table is still empty,
+        // resolve via pg_catalog (handles FKs referencing unique indexes
+        // which information_schema.key_column_usage doesn't track).
+        for builder in grouped.values_mut() {
+            if builder.constraint_type == "FOREIGN KEY"
+                && (builder.ref_table.is_none() || builder.ref_columns.is_empty())
+            {
+                if let Some((table, cols)) = resolve_fk_via_pg_catalog(&self.pool, &builder.name).await {
+                    builder.ref_table = Some(table);
+                    builder.ref_columns = cols;
+                }
+            }
+        }
+
         Ok(grouped.into_values().filter_map(|b| b.build()).collect())
     }
 
@@ -322,7 +340,7 @@ impl DatabaseIntrospector for PostgresIntrospector {
             JOIN pg_namespace n ON n.oid = t.relnamespace
             LEFT JOIN LATERAL (
                 SELECT string_agg(
-                    pg_get_indexdef(i.indexrelid, seq.kpno, true),
+                    pg_get_indexdef(i.indexrelid, seq.kpno::int, true),
                     E'\n'
                     ORDER BY seq.kpno
                 ) AS expr_str
@@ -493,5 +511,68 @@ impl ConstraintBuilder {
             name: self.name,
             kind,
         })
+    }
+}
+
+/// Resolve FK referenced table/columns via pg_catalog for constraints
+/// where information_schema couldn't resolve them (e.g. FKs referencing
+/// unique indexes instead of unique constraints).
+async fn resolve_fk_via_pg_catalog(
+    pool: &sqlx::PgPool,
+    constraint_name: &str,
+) -> Option<(String, Vec<String>)> {
+    let row = sqlx::query(
+        r#"
+        SELECT
+            confrelid::regclass::text AS ref_table_name,
+            confkey                  AS conf_key_arr
+        FROM pg_constraint
+        WHERE conname = $1
+          AND contype = 'f'
+        LIMIT 1
+        "#,
+    )
+    .bind(constraint_name)
+    .fetch_optional(pool)
+    .await
+    .ok()??;
+
+    let ref_table: String = row.get("ref_table_name");
+    let conf_key_arr: Option<Vec<Option<i16>>> = row.try_get("conf_key_arr").ok()?;
+
+    let conf_key = conf_key_arr?;
+
+    // Resolve attnum → column name via pg_attribute
+    let mut ref_columns = Vec::with_capacity(conf_key.len());
+    for &attnum in &conf_key {
+        let Some(attnum) = attnum else { continue };
+        if attnum <= 0 {
+            continue;
+        }
+        let col_row = sqlx::query(
+            r#"
+            SELECT a.attname
+            FROM pg_attribute a
+            JOIN pg_class c ON c.oid = a.attrelid
+            WHERE c.relname = $1
+              AND a.attnum = $2
+            "#,
+        )
+        .bind(&ref_table)
+        .bind(attnum)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten();
+
+        if let Some(col) = col_row {
+            ref_columns.push(col.get::<String, _>("attname"));
+        }
+    }
+
+    if ref_columns.is_empty() {
+        None
+    } else {
+        Some((ref_table, ref_columns))
     }
 }

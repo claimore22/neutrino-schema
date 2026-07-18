@@ -3,7 +3,7 @@
 -- Main users table with denormalized last login fields and soft delete
 -- ==============================================
 CREATE TABLE IF NOT EXISTS `users` (
-  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT 'Internal auto-incrementing ID',
+  `id` BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT 'Internal auto-incrementing ID',
 	`public_id` BINARY(16) NOT NULL DEFAULT (uuid_to_bin(uuid(),true)) COMMENT 'Public unique identifier (UUID v4 as binary)',
 	`first_name` VARCHAR(100) NOT NULL DEFAULT '' COMMENT 'User first name' COLLATE 'utf8mb4_unicode_ci',
 	`last_name` VARCHAR(100) NOT NULL DEFAULT '' COMMENT 'User last name' COLLATE 'utf8mb4_unicode_ci',

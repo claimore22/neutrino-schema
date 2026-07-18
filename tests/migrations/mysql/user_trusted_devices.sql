@@ -33,5 +33,5 @@ COMMENT = 'Optional trusted devices for user accounts';
 CREATE INDEX `idx_device_id` ON `user_trusted_devices` (`device_id`);
 
 -- Add index for user and device lookups
-CREATE INDEX IF NOT EXISTS `idx_trusted_device` 
+CREATE INDEX `idx_trusted_device`
 ON `user_trusted_devices` (`user_id`, `device_id`);

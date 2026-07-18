@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/crates/l/neutrino-schema.svg?refresh=1)](https://github.com/claimore22/neutrino-schema)
 [![sqlx](https://img.shields.io/badge/sqlx-0.9-blue)](https://crates.io/crates/sqlx)
 
-> **Note:** SchemaIR is approaching stability. While the JSON format is versioned (ir_version), minor releases may still introduce breaking changes as the project evolves. Review the [CHANGELOG](CHANGELOG.md)  before upgrading.
+> **Note:** SchemaIR is approaching stability. While the JSON format is versioned (ir_version), minor releases may still introduce breaking changes as the project evolves. Review the [CHANGELOG](CHANGELOG.md) before upgrading.
 > 
 Compile relational database schemas into strongly typed Rust types.
 
@@ -52,20 +52,24 @@ pub struct Users {
          Database Introspection
                    |
                    v
-           Database Types
+            Database Types
       (PgType / MysqlType / SqliteType)
                    |
                    v
-                SchemaIR
+                 SchemaIR
       (tables, fields, relations,
        enums, constraints, metadata)
                    |
                    v
-           Type Resolution
-        (DbType ──TypeRegistry──> RustType)
+          Relation Inference
+   (cardinality, naming, M2M detection)
                    |
                    v
-         Rust Code Generation
+            Type Resolution
+         (DbType ──TypeRegistry──> RustType)
+                   |
+                   v
+          Rust Code Generation
                    |
                    v
          Strongly typed Rust code
@@ -78,16 +82,16 @@ Raw database types are normalised into a database-agnostic `DbType` enum, then r
 - PostgreSQL, MySQL/MariaDB, and SQLite introspection
 - Enum introspection & generation (PostgreSQL `CREATE TYPE`, MySQL `enum(...)` column definitions)
 - Normalised intermediate representation (`SchemaIR`)
+- **Relation inference engine** — cardinality (OneToOne/OneToMany/ManyToOne/ManyToMany), join table detection, relation naming
 - Configurable type resolution (`TypeRegistry`) with `[types]` overrides — e.g. `money = "rust_decimal::Decimal"`
 - Feature-gated Rust types: `uuid::Uuid`, `rust_decimal::Decimal`, `chrono::DateTime<Utc>`, etc.
 - Automatic Rust struct generation with `Option<T>` for nullable columns
 - CLI tooling: `init`, `inspect`, `export`, and `generate` commands
 - **JSON export** — serialize a normalized SchemaIR to a versioned JSON file
-- **Offline code generation** — `generate --from-ir` works without a database connection
+- **Offline code generation** — `generate --from-ir` (or `--from-json`) works without a database connection
 - **Schema validation** — semantic checks for duplicate tables, missing references, orphan enums
 - Config file workflow (`neutrino-schema.toml` with `[databases.*]`, `[generator]`, `[types]` sections)
 - `--table` flag for selective generation
-- Relationship inference via naming heuristics
 
 ## Installation
 
@@ -116,7 +120,7 @@ neutrino-schema inspect --database-url $DATABASE_URL
 neutrino-schema export --database-url $DATABASE_URL --pretty -o my_schema.json
 
 # Generate code from the exported JSON (no database connection needed)
-neutrino-schema generate --from-ir my_schema.json --output src/entities
+neutrino-schema generate --from-json my_schema.json --output src/entities
 
 # Generate only specific tables
 neutrino-schema generate --database-url $DATABASE_URL --table users,orders

@@ -1,8 +1,8 @@
 //! Rust source code generation from [`SchemaIR`](crate::SchemaIR).
 //!
 //! The main entry point is [`generate()`](crate::generate) which produces a
-//! [`GeneratedOutput`](crate::GeneratedOutput) that the CLI writes via
-//! [`OutputWriter`](crate::OutputWriter).
+//! [`GeneratedOutput`] that the CLI writes via
+//! [`OutputWriter`].
 
 mod options;
 mod output;

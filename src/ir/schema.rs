@@ -1,4 +1,4 @@
-use crate::ir::{EnumIR, Metadata, RelationIR, RelationOrigin, RelationStrategy, TableIR};
+use crate::ir::{EnumIR, Metadata, RelationIR, RelationInferenceStrategy, RelationOrigin, RelationStrategy, TableIR};
 #[cfg(test)]
 use crate::types::DbType;
 
@@ -225,7 +225,9 @@ impl SchemaIR {
                     from_columns: vec![field.name.clone()],
                     to_table,
                     to_columns,
-                    origin: RelationOrigin::Inferred,
+                    origin: RelationOrigin::Inferred {
+                        strategy: RelationInferenceStrategy::Suffix,
+                    },
                 });
             }
         }

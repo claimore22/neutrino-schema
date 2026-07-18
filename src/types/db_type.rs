@@ -4,7 +4,7 @@ use crate::types::{EnumRef, PgType, TypeRegistry};
 ///
 /// This is the type system used throughout the IR and codegen layers.
 /// Raw database types (PostgreSQL, MySQL, SQLite) are normalised into this
-/// enum by [`to_db_type`], [`mysql_to_db_type`], or [`sqlite_to_db_type`].
+/// enum by [`to_db_type`], [`mysql_to_db_type`](crate::mysql_to_db_type), or [`sqlite_to_db_type`](crate::sqlite_to_db_type).
 /// Nullability is NEVER encoded here — always `Option<T>` at codegen time.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", content = "value")]
@@ -97,7 +97,7 @@ pub fn to_db_type(pg: PgType) -> DbType {
 /// Returns a Rust type path (e.g. `"i64"`, `"String"`, `"uuid::Uuid"`).
 /// When `nullable` is `true` the type is wrapped in `Option<...>`.
 ///
-/// This is a convenience wrapper around [`TypeRegistry::default().resolve()`].
+/// This is a convenience wrapper around [`TypeRegistry::resolve`](crate::TypeRegistry::resolve).
 /// For full control over imports and type overrides, use [`TypeRegistry`] directly.
 ///
 /// # Examples

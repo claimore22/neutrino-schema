@@ -1,8 +1,11 @@
 //! Intermediate Representation (IR) — schema-agnostic model for code generation.
 //!
 //! Types are collected from [`Column`](crate::Column) into [`FieldIR`] → [`TableIR`] → [`SchemaIR`].
-//! Optional relation inference produces [`RelationIR`] entries from naming heuristics
-//! or from foreign key constraints ([`ConstraintKind::ForeignKey`]).
+//! Relation inference produces [`RelationIR`] entries from naming heuristics or from
+//! foreign key constraints ([`ConstraintKind::ForeignKey`]).
+//!
+//! For application-level semantics (cardinality, relation names, inverse),
+//! use [`SemanticRelationIR`] which wraps a [`RelationIR`] with inferred metadata.
 
 mod constraint;
 mod enum_def;

@@ -32,7 +32,7 @@ pub use traits::*;
 
 use crate::ir::{RelationStrategy, SchemaIR, TableIR};
 
-/// Collect all columns from the given [`TableInfo`] entries and convert to [`FieldIR`].
+/// Collect all columns from the given [`TableInfo`] entries and convert to [`FieldIR`](crate::ir::FieldIR).
 ///
 /// The table comment from [`TableInfo::comment`] is propagated into [`TableIR::comment`]
 /// so that codegen can emit it as a `///` doc comment on the generated struct.
@@ -64,8 +64,8 @@ pub async fn introspect_tables(
 ///
 /// After collecting tables and enums, this function post-processes field
 /// types to promote database-level enum columns (MySQL `enum(...)`, or
-/// any [`DbType::Unknown`] whose raw type name matches a known enum name)
-/// to [`DbType::Enum`].
+/// any [`DbType::Unknown`](crate::DbType::Unknown) whose raw type name matches a known enum name)
+/// to [`DbType::Enum`](crate::DbType::Enum).
 pub async fn introspect_schema(
     introspector: &dyn DatabaseIntrospector,
     table_infos: &[TableInfo],

@@ -2,6 +2,48 @@
 
 All notable changes to this project will be documented here.
 
+## [0.7.0] - 2026-07-17
+
+### Added
+- **Relation inference engine** (`src/inference/`) — converts raw `RelationIR`
+  entries into application-facing `SemanticRelationIR` with cardinality,
+  relation names, and inverse information.
+  - `RelationInferenceEngine::infer()` — orchestrates the full pipeline.
+  - **Many-to-many detection** — detects join tables (composite PK of 2 FKs).
+  - **Cardinality inference** — OneToOne (unique FK constraint/index),
+    ManyToOne (default), ManyToMany (join table).
+  - **Naming** — singularize/pluralize table names for relation names.
+  - 23 unit tests covering all inference paths.
+- **`--from-json` alias** — `generate --from-json` is now an alias for
+  `generate --from-ir`, matching the export workflow documentation.
+
+### Changed (breaking)
+- **`RelationOrigin::Inferred` is now a struct variant** — carries a
+  `strategy: RelationInferenceStrategy` field. Update pattern matches:
+  ```rust
+  // Before:
+  RelationOrigin::Inferred
+  // After:
+  RelationOrigin::Inferred { strategy: RelationInferenceStrategy::Suffix }
+  ```
+- **`RelationModelIR` renamed to `SemanticRelationIR`** — the ORM-facing
+  relation model is now named for non-ORM future use (GraphQL, TypeScript).
+- **`SemanticRelationIR.name` renamed to `SemanticRelationIR.relation_name`**
+  — clearer naming for the relation name field.
+
+### Fixed
+- **PostgreSQL FK introspection self-join bug** — `key_column_usage` was
+  joining without filtering by source table name, producing wrong
+  `to_table`/`to_columns` for all FK relations (showed same table on both
+  sides). Fixed with `JOIN` + `tc.table_name = ccu.table_name` and a
+  dedicated `ref_kcu` join via `referential_constraints`.
+- **Composite FK with unique index fallback** — FKs referencing unique
+  indexes (not unique constraints) couldn't be resolved via
+  `information_schema`. Added `pg_catalog` fallback via
+  `pg_constraint.confrelid/confkey`.
+- **`pg_get_indexdef` bigint cast** — `WITH ORDINALITY` produces `bigint`
+  but the function expects `int`. Added `::int` cast.
+
 ## [0.6.0] - 2026-07-16
 
 ### Changed

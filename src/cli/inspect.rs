@@ -66,7 +66,7 @@ impl InspectCommand {
             for r in &schema.relations {
                 let source = match &r.origin {
                     crate::ir::RelationOrigin::ForeignKey => " (FK)".to_string(),
-                    crate::ir::RelationOrigin::Inferred => " (heuristic)".to_string(),
+                    crate::ir::RelationOrigin::Inferred { .. } => " (heuristic)".to_string(),
                 };
                 let from_cols = r.from_columns.join(", ");
                 let to_cols = r.to_columns.join(", ");

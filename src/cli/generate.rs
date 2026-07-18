@@ -21,7 +21,7 @@ pub struct GenerateCommand {
     ///
     /// When set, generation happens without a live database connection.
     /// Mutually exclusive with --database-url.
-    #[arg(long, value_name = "FILE")]
+    #[arg(long, alias = "from-json", value_name = "FILE")]
     pub from_ir: Option<PathBuf>,
 
     /// Database connection string (also read from `DATABASE_URL` env).

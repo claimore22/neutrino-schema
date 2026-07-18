@@ -12,7 +12,7 @@ impl OutputWriter {
     /// Write all files in `output` into `dir`.
     ///
     /// Creates `dir` and any intermediate directories if they do not exist.
-    /// Respects [`GeneratedFile::overwrite`] — when `false`, existing files
+    /// Respects [`GeneratedFile::overwrite`](crate::GeneratedFile::overwrite) — when `false`, existing files
     /// are skipped.
     pub fn write(output: &GeneratedOutput, dir: &Path) -> std::io::Result<()> {
         std::fs::create_dir_all(dir)?;

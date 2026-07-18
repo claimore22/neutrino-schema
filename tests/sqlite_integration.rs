@@ -208,7 +208,7 @@ async fn sqlite_full_pipeline() {
     let heuristic_rel = schema
         .relations
         .iter()
-        .find(|r| matches!(r.origin, neutrino_schema::ir::RelationOrigin::Inferred));
+        .find(|r| matches!(r.origin, neutrino_schema::ir::RelationOrigin::Inferred { .. }));
     assert!(
         heuristic_rel.is_none(),
         "heuristic relation should NOT exist when FK already covers posts.user_id → users.id"

@@ -1,0 +1,21 @@
+# neutrino-schema configuration for the SaaS Subscription demo.
+#
+# Quick start:
+#   neutrino-schema init --database-url "postgres://localhost/saas_demo"
+#
+# Then generate:
+#   neutrino-schema generate
+
+[databases.default]
+url = "postgres://localhost/saas_demo"
+provider = "postgres"
+
+[generator]
+output = "src/types"
+module_name = "types"
+render_mode = "clean"
+
+# [types]
+# Uncomment to override type mappings:
+# money = "rust_decimal::Decimal"
+# citext = "String"

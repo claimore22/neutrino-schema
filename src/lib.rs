@@ -63,6 +63,7 @@
 
 pub mod codegen;
 pub mod config;
+pub mod inference;
 pub mod ir;
 pub mod types;
 pub mod util;
@@ -81,7 +82,8 @@ pub use codegen::{
 };
 pub use ir::{
     ConstraintIR, ConstraintKind, EnumIR, EnumVariantIR, FieldIR, IndexEntryIR, IndexIR, IndexKind,
-    MatchType, ReferentialAction, RelationIR, RelationOrigin, RelationStrategy, SchemaIR, TableIR,
+    MatchType, ReferentialAction, RelationCardinality, RelationIR, RelationInferenceStrategy,
+    RelationOrigin, RelationStrategy, SchemaIR, SemanticRelationIR, TableIR,
 };
 pub use validation::{validate, ValidationEntry, ValidationLevel, ValidationReport};
 pub use types::{

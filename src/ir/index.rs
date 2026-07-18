@@ -1,7 +1,7 @@
 /// A physical database index in the intermediate representation.
 ///
 /// Describes the storage-level index structure. Logical constraints
-/// (PK, FK, UNIQUE, CHECK) are captured in [`ConstraintIR`] — an index
+/// (PK, FK, UNIQUE, CHECK) are captured in [`ConstraintIR`](crate::ir::ConstraintIR) — an index
 /// may implement a constraint, but the index is not the constraint itself.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]

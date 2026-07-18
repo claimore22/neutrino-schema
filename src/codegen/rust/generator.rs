@@ -4,7 +4,7 @@ use crate::{
 };
 use std::path::PathBuf;
 
-use super::imports::build_imports_block;
+use super::imports::build_imports_block_for_table;
 use super::render::{generate_table, generate_table_bare};
 use super::resolver::RustTypeResolver;
 
@@ -37,7 +37,7 @@ pub fn generate(schema: &SchemaIR, options: &GenerateOptions) -> GeneratedOutput
     for table in &schema.tables {
         let file_name = format!("{}.rs", table.name.replace('-', "_"));
         let content = generate_table(table, options, &resolver);
-        let imports = build_imports_block(schema, &options.rust.type_registry);
+        let imports = build_imports_block_for_table(table, &options.rust.type_registry);
         let content = if imports.is_empty() {
             content
         } else {

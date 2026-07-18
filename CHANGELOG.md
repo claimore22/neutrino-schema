@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented here.
 
+## [0.7.1] - 2026-07-17
+
+### Fixed
+- **Spurious `use serde_json::Value` in generated files** — imports were
+  computed schema-wide, causing unused imports when not every table needed
+  `Value`. Now generates per-table import blocks via
+  `generate_imports_for_table()`.
+- **Generate summary relation origins** — replaced hardcoded
+  `"(naming heuristic)"` with dynamic FK vs heuristic breakdown, matching
+  `inspect --all` output (e.g. `"user (FK)"` vs `"roles (heuristic)"`).
+
+### Added
+- **SQLite CLI integration tests** (`tests/cli_sqlite.rs`) — 11 tests
+  covering every CLI subcommand (`help`, `init`, `inspect`, `generate`,
+  `export`, `--from-json` alias) against a file-based SQLite database.
+
 ## [0.7.0] - 2026-07-17
 
 ### Added

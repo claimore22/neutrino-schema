@@ -111,12 +111,36 @@ impl GenerateCommand {
         );
 
         if !schema.relations.is_empty() {
-            eprintln!("  Relations: {} (naming heuristic)", schema.relations.len());
+            let fk_count = schema
+                .relations
+                .iter()
+                .filter(|r| matches!(r.origin, crate::ir::RelationOrigin::ForeignKey))
+                .count();
+            let heuristic_count = schema.relations.len() - fk_count;
+            if fk_count > 0 && heuristic_count > 0 {
+                eprintln!(
+                    "  Relations: {} ({} FK, {} heuristic)",
+                    schema.relations.len(),
+                    fk_count,
+                    heuristic_count,
+                );
+            } else if fk_count > 0 {
+                eprintln!("  Relations: {} (FK)", schema.relations.len());
+            } else {
+                eprintln!(
+                    "  Relations: {} (naming heuristic)",
+                    schema.relations.len()
+                );
+            }
             for r in &schema.relations {
+                let source = match &r.origin {
+                    crate::ir::RelationOrigin::ForeignKey => " (FK)".to_string(),
+                    crate::ir::RelationOrigin::Inferred { .. } => " (heuristic)".to_string(),
+                };
                 let from_cols = r.from_columns.join(", ");
                 let to_cols = r.to_columns.join(", ");
                 eprintln!(
-                    "    {}.({}) → {}.({})",
+                    "    {}.({}) → {}.({}){source}",
                     r.from_table, from_cols, r.to_table, to_cols
                 );
             }

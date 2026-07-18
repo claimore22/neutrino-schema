@@ -1,6 +1,6 @@
 [package]
 name = "neutrino-schema"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/claimore22/neutrino-schema"
@@ -16,6 +16,11 @@ documentation = "https://docs.rs/neutrino-schema"
 name = "neutrino-schema"
 path = "src/main.rs"
 required-features = ["cli"]
+
+[[test]]
+name = "cli_sqlite"
+path = "tests/cli_sqlite.rs"
+required-features = ["sqlite", "cli"]
 
 [features]
 default = ["postgres", "sqlite", "mysql", "cli", "uuid", "decimal", "chrono"]
@@ -55,6 +60,7 @@ required-features = ["mysql"]
 [dev-dependencies]
 tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "macros"] }
 syn = { version = "2", features = ["full", "visit"] }
+sqlx = { version = "0.9", features = ["sqlite", "runtime-tokio"] }
 
 [lints.clippy]
 all = "allow"
